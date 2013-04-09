@@ -124,12 +124,12 @@ class network
 					continue;
 				}			
 				if(net[i].bias==1||net[i].row==0||(net[i].row!=it)) continue;
-				ids[i] = productsum(roots,net[i].weights);
+				ids[i] = productsum(roots,net[i].weights); //future goes here
 			}
 			for(int i = 0; i < net.size(); i++)
 			{
 				if(net[i].bias==1||net[i].row==0||net[i].row!=it) continue;
-				net[i].value = ids[i];
+				net[i].value = ids[i]; //wait goes here
 				net[i].value = f(net[i].value);
 			}
 		}
