@@ -284,10 +284,18 @@ std::vector<float> to_vector(float x[],int s)
 	for(int i = 0; i < s; i++) out.push_back(x[i]);
 	return out;
 }
-
+/*
 int main()
 {
-	network n(2,1,2,1,1);
+	network n(20,200,200,1,1);
+
+	for(int i = 0; i < 100; i++)
+	  {
+	    std::cout << i << "\n";
+	    n.run();
+	  }
+
+	return 0;
 
 //XOR
 	float tests[][2] =
@@ -356,3 +364,4 @@ int main()
 	}
 	return 0;
 }
+*/
