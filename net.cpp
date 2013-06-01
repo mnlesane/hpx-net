@@ -30,7 +30,7 @@ void init()
 float productsum(std::vector<float> roots, std::vector<float> weights)
 {
 	float out = 0;
-	for(int i = 0; i < roots.size(); i++)
+	for(int i = 0; i < (int)roots.size(); i++)
 	{
 		out += roots[i]*weights[i];
 	}
@@ -55,7 +55,7 @@ std::vector<float> extract_roots(std::vector<neuron> contents)
 {
 
 	std::vector<float> result;
-	for(int i = 0; i < contents.size(); i++)
+	for(int i = 0; i < (int)contents.size(); i++)
 		result.push_back(contents[i].value);
 	return result;
 }
@@ -85,7 +85,7 @@ class neuron_row
 
 	void run(std::vector<neuron> roots)
 	{
-		for(int i = 0; i < this->contents.size(); i++)
+		for(int i = 0; i < (int)this->contents.size(); i++)
 		{
 			this->contents[i].run(roots);
 		}
@@ -109,17 +109,17 @@ class network
 
 	void setSensors(float vals[])
 	{
-		for(int i = 0; i < sizeof(vals)/sizeof(float); i++)
+		for(int i = 0; i < (int)(sizeof(vals)/sizeof(float)); i++)
 			this->rows[0].contents[i].value = vals[i];
 	}
 	void setSensors(std::vector<float> vals)
 	{
-		for(int i = 0; i < vals.size(); i++)
+		for(int i = 0; i < (int)vals.size(); i++)
 			this->rows[0].contents[i].value = vals[i];
 	}
 	void run() //Forward Propagation
 	{
-		for(int i = 1; i < this->rows.size(); i++)
+		for(int i = 1; i < (int)this->rows.size(); i++)
 		{
 			this->rows[i].run(this->rows[i-1].contents);
 		}
@@ -127,7 +127,7 @@ class network
 	std::vector<float> reverse(std::vector<float> vals)
 	{
 		std::vector<float> result;
-		for(int i = vals.size()-1; i >= 0; i--)
+		for(int i = (int)vals.size()-1; i >= 0; i--)
 			result.push_back(vals[i]);
 		return result;
 	}
@@ -138,12 +138,12 @@ class network
 
 		float error;
 
-		for(int i = this->rows.size()-1; i >= 1; i--)
+		for(int i = (int)this->rows.size()-1; i >= 1; i--)
 		{
-			for(int j = 0; j < this->rows[i].size(); j++)
+			for(int j = 0; j < (int)this->rows[i].size(); j++)
 			{
 				if(this->rows[i].contents[j].bias == 1) continue;
-				if(i == this->rows.size()-1) //output deltas
+				if(i == (int)this->rows.size()-1) //output deltas
 				{
 					float target = v[0];
 					v.erase(v.begin(),v.begin()+1);
@@ -153,7 +153,7 @@ class network
 					float dfunc = df(this->rows[i].contents[j].value);
 					this->rows[i].contents[j].delta = error*dfunc;
 
-					for(int k = 0; k < this->rows[i-1].size(); k++) //previous layer
+					for(int k = 0; k < (int)this->rows[i-1].size(); k++) //previous layer
 					{
 						float change = this->rows[i].contents[j].delta*this->rows[i-1].contents[k].value;
 						float change2 = m*change + n*this->rows[i].contents[j].last_change[k];
@@ -165,13 +165,13 @@ class network
 				else //hidden deltas
 				{
 					error = 0;
-					for(int k = 0; k < this->rows[i+1].size(); k++)
+					for(int k = 0; k < (int)this->rows[i+1].size(); k++)
 					{
 						error += this->rows[i+1].contents[k].delta * this->rows[i+1].contents[k].weights[j];
 					}
 					this->rows[i].contents[j].delta = error*df(this->rows[i].contents[j].value);
 
-					for(int k = 0; k < this->rows[i].contents[j].weights.size(); k++) //previous layer
+					for(int k = 0; k < (int)this->rows[i].contents[j].weights.size(); k++) //previous layer
 					{
 						float change = this->rows[i].contents[j].delta * this->rows[i-1].contents[k].value;
 						float change2 = m*change + n*this->rows[i].contents[j].last_change[k];
@@ -185,7 +185,7 @@ class network
 		error = 0;
 		float out_index = 0;
 
-		for(int i = 0; i < this->rows[this->rows.size()-1].size(); i++)
+		for(int i = 0; i < (int)this->rows[this->rows.size()-1].size(); i++)
 		{
 			error += 0.5*pow(vi[out_index]-this->rows[this->rows.size()-1].contents[i].value,2);
 			out_index++;
@@ -219,7 +219,7 @@ class network
 			{
 				//Nodes for hidden layers
 				hidden_layer.push_back(neuron(rowcount,0));
-				for(int k = 0; k < row[i].size(); k++)
+				for(int k = 0; k < (int)row[i].size(); k++)
 				{
 					hidden_layer[j].weights.push_back(rnd()-0.5);
 					hidden_layer[j].last_change.push_back(0);
@@ -257,13 +257,13 @@ class network
 	void profile()
 	{
 		std::cout << "\n";
-		for(int i = 0; i < this->rows.size(); i++)
+		for(int i = 0; i < (int)this->rows.size(); i++)
 		{
 			std::cout << "ROW " << i << "\n";
-			for(int j = 0; j < this->rows[i].contents.size(); j++)
+			for(int j = 0; j < (int)this->rows[i].contents.size(); j++)
 			{
 				std::cout << "\tCOL " << j << " -> VAL " << this->rows[i].contents[j].value << "\n";
-				for(int k = 0; k < this->rows[i].contents[j].weights.size(); k++)
+				for(int k = 0; k < (int)this->rows[i].contents[j].weights.size(); k++)
 				{
 					std::cout << "\t\tWEIGHT " << k << ": " << this->rows[i].contents[j].weights[k] << "\n";
 				}
@@ -320,7 +320,7 @@ int main()
 
 		int valid = 1;
 
-		for(int it = 0; it < n.rows[n.rows.size()-1].contents.size(); it++)
+		for(int it = 0; it < (int)n.rows[n.rows.size()-1].contents.size(); it++)
 		{
 			int counter = 0;
 			float r = n.rows[n.rows.size()-1].contents[it].value;

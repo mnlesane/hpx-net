@@ -1,4 +1,4 @@
-#include "net2.cpp"
+#include "net.cpp"
 #include <algorithm>
 #include <unistd.h>
 
@@ -24,12 +24,12 @@ bool fitness_sort(cmpob a, cmpob b)
 
 network crossover(network x,network y)
 {
-	for(int i = 1; i < x.rows.size(); i++)
+	for(int i = 1; i < (int)x.rows.size(); i++)
 	{
-		for(int j = 0; j < x.rows[i].contents.size(); j++)
+		for(int j = 0; j < (int)x.rows[i].contents.size(); j++)
 		{
 			if(x.rows[i].contents[j].bias == 1) continue;
-			for(int k = 0; k < x.rows[i].contents[j].weights.size(); k++)
+			for(int k = 0; k < (int)x.rows[i].contents[j].weights.size(); k++)
 			{
 				if(floor(rnd()*MUTATION_RATE)==0) x.rows[i].contents[j].weights[k /*uhhh -- remember how this works here*/] = rnd(); //mutation
 				else
@@ -74,7 +74,7 @@ else	if(x==1) return "1";
 
 std::string left_pad(std::string s, int len, std::string padding)
 {
-	while(s.length() < len)
+	while((int)s.length() < len)
 	{
 		s = padding + s;
 	}
@@ -84,7 +84,7 @@ std::string left_pad(std::string s, int len, std::string padding)
 std::vector<float> str_split_float(std::string s)
 {
 	std::vector<float> result;
-	for(int i = 0; i < s.length(); i++)
+	for(int i = 0; i < (int)s.length(); i++)
 	{
 		result.push_back
 		(
@@ -97,7 +97,7 @@ std::vector<float> str_split_float(std::string s)
 std::vector<cmpob> array_reverse(std::vector<cmpob> li)
 {
 	std::vector<cmpob> out;
-	for(int i = li.size()-1; i >= 0; i--)
+	for(int i = (int)li.size()-1; i >= 0; i--)
 		out.push_back(li[i]);
 
 	return out;
@@ -121,11 +121,11 @@ float assess_fitness(std::vector<network> &generation)
 
 	float error[generation.size()];
 	
-	for(int i = 0; i < generation.size(); i++) error[i] = 0;
+	for(int i = 0; i < (int)generation.size(); i++) error[i] = 0;
 	
 	for(int i = 0; i < 4; i++)
 	{
-		for(int j = 0; j < generation.size(); j++)
+		for(int j = 0; j < (int)generation.size(); j++)
 		{
 			generation[j].setSensors(tests[i]);
 			generation[j].run();
@@ -137,7 +137,7 @@ float assess_fitness(std::vector<network> &generation)
 	
 	float average_error = 0;
 	
-	for(int i = 0; i < generation.size(); i++)
+	for(int i = 0; i < (int)generation.size(); i++)
 	{
 		cmpob c;
 		c.n = generation[i];
@@ -171,8 +171,8 @@ float evolve(std::vector<network> &generation)
 	float generational_error = assess_fitness(generation);
 	std::vector<network> new_generation;
 	
-	for(int i = 0; i < generation.size(); i++)
-		for(int j = 0; j < generation.size(); j++)
+	for(int i = 0; i < (int)generation.size(); i++)
+		for(int j = 0; j < (int)generation.size(); j++)
 			if(i!=j && i < j)
 			{
 				network newnet = crossover(generation[i],generation[j]);
@@ -187,10 +187,10 @@ float evolve(std::vector<network> &generation)
 
 std::string implode(std::string delimiter, std::vector<std::string> array){
 	std::string out = "";
-	for(int i = 0; i < array.size(); i++)
+	for(int i = 0; i < (int)array.size(); i++)
 	{
 		out.append(array[i]);
-		if(i<array.size()-1) out.append(delimiter);
+		if(i<(int)array.size()-1) out.append(delimiter);
 	}
 	return out;
 }
@@ -233,7 +233,7 @@ int main()
 			std::vector<float> sensors = to_vector(tests[j],2);
 			std::vector<float> target = to_vector(targets[j],1);
 
-			for(int k = 0; k < generation.size(); k++)
+			for(int k = 0; k < (int)generation.size(); k++)
 			{
 				std::cout << "XOR(" << sensors[0] << "," << sensors[1] << ") = ";
 
