@@ -196,6 +196,7 @@ class network
 					error = 0;
 					for(int k = 0; k < (int)this->rows[i+1].size(); k++)
 					{
+						if(this->rows[i+1].contents[k].bias) continue;
 						error += this->rows[i+1].contents[k].delta * this->rows[i+1].contents[k].weights[j];
 					}
 					this->rows[i].contents[j].delta = error*df(this->rows[i].contents[j].value);
@@ -224,6 +225,7 @@ class network
 	network()
 	{
 	}
+	//TODO: Create network in parallel 
 	void init(int in, int hidden_rows, int hidden_cols, int out, int bias = 0)
 	{
 		std::vector<neuron_row> row;
@@ -310,7 +312,7 @@ std::vector<float> to_vector(float x[],int s)
 
 int hpx_main()
 {
-	network n(2,1,2,1,1);
+	network n(2,10,20,1,1);
 
 //XOR
 	float tests[][2] =
