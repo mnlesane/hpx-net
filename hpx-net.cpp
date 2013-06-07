@@ -8,6 +8,8 @@
 #include <hpx/hpx_init.hpp>
 #include <hpx/include/actions.hpp>
 #include <hpx/include/util.hpp>
+#include <hpx/include/lcos.hpp>
+#include <hpx/util/unwrap.hpp>
 
 float productsum(std::vector<float>,std::vector<float>);
 
@@ -46,6 +48,33 @@ float productsum(std::vector<float> roots, std::vector<float> weights)
 	return out;
 }
 
+hpx::lcos::future<float> future_productsum(std::vector<hpx::lcos::future<float>> roots, std::vector<float> weights)
+{
+	hpx::lcos::future<float> out = hpx::lcos::make_ready_future((float)0.0);
+        for(int i = 0; i < (int)roots.size(); i++)
+	{
+		hpx::lcos::future<float> add = hpx::lcos::local::dataflow
+		(
+			hpx::util::unwrap
+			( [] (float a, float b)
+			{
+				return a*b;
+			}
+			),roots[i],hpx::lcos::make_ready_future((float)weights[i])
+		);
+		out = hpx::lcos::local::dataflow
+		(
+			hpx::util::unwrap
+			( [] (float a, float b)
+			{
+				return a+b;
+			}
+			),out,add
+		);
+	}
+	return out;
+}
+
 class neuron
 {
 	public:
@@ -54,6 +83,8 @@ class neuron
 	std::vector<float> last_change;
 	hpx::lcos::future<float> new_value;
 
+	hpx::lcos::future<float> get_f_future();
+
 	float value, bias, delta;
 
 	neuron(float row, float bias);
@@ -61,6 +92,18 @@ class neuron
 	void run(std::vector<neuron> roots);
 	float get_value();
 };
+	hpx::lcos::future<float> neuron::get_f_future()
+	{
+		return hpx::lcos::local::dataflow
+		(
+			hpx::util::unwrap
+			( [] (float a)
+			{
+				return f(a);
+			}
+			),this->new_value
+		);
+	}
 
 std::vector<float> extract_roots(std::vector<neuron> contents)
 {
@@ -70,12 +113,32 @@ std::vector<float> extract_roots(std::vector<neuron> contents)
 		result.push_back(contents[i].value);
 	return result;
 }
+std::vector<float> future_get_roots(std::vector<neuron> contents)
+{
+	std::vector<float> result;
+	for(int i = 0; i < (int)contents.size(); i++)
+		result.push_back(contents[i].new_value.get());
+	return result;
+}
+std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> contents)
+{
+  std::vector<hpx::lcos::future<float>> out;
+  for(int i = 0; i < (int)contents.size(); i++)
+  {
+    out.push_back(contents[i].get_f_future());
+  }
+  return out;
+}
 
 	neuron::neuron(float row, float bias)
 	{
 		this->value = 0.0;
 		this->bias = bias;
-		if(bias) this->value = 1.0;
+		if(bias)
+		{
+			this->value = 1.0;
+			this->new_value = hpx::lcos::make_ready_future((float)1.0);
+		}
 	}
 	void neuron::run(std::vector<neuron> roots)
 	{
@@ -102,10 +165,12 @@ class neuron_row
 	public:
 
 	std::vector<neuron> contents;
+	int out;
 
-	neuron_row(std::vector<neuron> init)
+	neuron_row(std::vector<neuron> init,int out)
 	{
 		this->contents = init;
+		this->out = out;
 	}
 
 	void run(std::vector<neuron> roots)
@@ -114,10 +179,11 @@ class neuron_row
 		{
 			this->contents[i].run(roots);
 		}
-		for(int i = 0; i < (int)this->contents.size(); i++)
-		{
-			this->contents[i].get_value();
-		}
+		//if(this->out)
+			for(int i = 0; i < (int)this->contents.size(); i++)
+			{
+				this->contents[i].get_value();
+			}
 	}
 
 	void add(neuron x)
@@ -129,6 +195,52 @@ class neuron_row
 	{
 		return this->contents.size();
 	}
+	void correct(std::vector<float> v, float m, float n,neuron_row prev,neuron_row next)
+	{
+		float error;
+		for(int j = 0; j < (int)this->size(); j++)
+	      	{
+       			if(this->contents[j].bias == 1) continue;
+	       		if((int)this->out) //output deltas
+	       		{
+	       			float target = v[j];
+	       			//v.erase(v.begin(),v.begin()+1);
+
+       				error = target - this->contents[j].value;
+
+       				float dfunc = df(this->contents[j].value);
+       				this->contents[j].delta = error*dfunc;
+
+       				for(int k = 0; k < (int)this->size(); k++) //previous layer
+       				{
+	       				float change = this->contents[j].delta*prev.contents[k].value;
+	       				float change2 = m*change + n*this->contents[j].last_change[k];
+
+		       			this->contents[j].weights[k] += change2;
+		       			this->contents[j].last_change[k] = change;
+	       			}
+       			}
+       			else //hidden deltas
+       			{
+       				error = 0;
+       				for(int k = 0; k < (int)next.size(); k++)
+       				{
+       					if(next.contents[k].bias) continue;
+       					error += next.contents[k].delta * next.contents[k].weights[j];
+       				}
+       				this->contents[j].delta = error*df(this->contents[j].value);
+
+       				for(int k = 0; k < (int)this->contents[j].weights.size(); k++) //previous layer
+       				{
+	       				float change = this->contents[j].delta * prev.contents[k].value;
+	       				float change2 = m*change + n*this->contents[j].last_change[k];
+
+       					this->contents[j].weights[k] += change2;
+       					this->contents[j].last_change[k] = change;
+       				}
+       			}
+       		}
+	}
 };
 
 class network
@@ -139,12 +251,18 @@ class network
 	void setSensors(float vals[])
 	{
 		for(int i = 0; i < (int)(sizeof(vals)/sizeof(float)); i++)
+		{
 			this->rows[0].contents[i].value = vals[i];
+			this->rows[0].contents[i].new_value = hpx::lcos::make_ready_future(vals[i]);
+		}
 	}
 	void setSensors(std::vector<float> vals)
 	{
 		for(int i = 0; i < (int)vals.size(); i++)
+		{
 			this->rows[0].contents[i].value = vals[i];
+			this->rows[0].contents[i].new_value = hpx::lcos::make_ready_future(vals[i]);
+		}
 	}
 	void run() //Forward Propagation
 	{
@@ -160,7 +278,7 @@ class network
 			result.push_back(vals[i]);
 		return result;
 	}
-	float correct_serial(std::vector<float> v, float m /*learning_rate*/, float n /*momentum*/)
+	float correct(std::vector<float> v, float m /*learning_rate*/, float n /*momentum*/)
 	{
 		std::vector<float> vi = v;
 		//v = this->reverse(v);
@@ -169,48 +287,11 @@ class network
 
 		for(int i = (int)this->rows.size()-1; i >= 1; i--)
 		{
-			for(int j = 0; j < (int)this->rows[i].size(); j++)
-			{
-				if(this->rows[i].contents[j].bias == 1) continue;
-				if(i == (int)this->rows.size()-1) //output deltas
-				{
-					float target = v[0];
-					v.erase(v.begin(),v.begin()+1);
-
-					error = target - this->rows[i].contents[j].value;
-
-					float dfunc = df(this->rows[i].contents[j].value);
-					this->rows[i].contents[j].delta = error*dfunc;
-
-					for(int k = 0; k < (int)this->rows[i-1].size(); k++) //previous layer
-					{
-						float change = this->rows[i].contents[j].delta*this->rows[i-1].contents[k].value;
-						float change2 = m*change + n*this->rows[i].contents[j].last_change[k];
-
-						this->rows[i].contents[j].weights[k] += change2;
-						this->rows[i].contents[j].last_change[k] = change;
-					}
-				}
-				else //hidden deltas
-				{
-					error = 0;
-					for(int k = 0; k < (int)this->rows[i+1].size(); k++)
-					{
-						if(this->rows[i+1].contents[k].bias) continue;
-						error += this->rows[i+1].contents[k].delta * this->rows[i+1].contents[k].weights[j];
-					}
-					this->rows[i].contents[j].delta = error*df(this->rows[i].contents[j].value);
-
-					for(int k = 0; k < (int)this->rows[i].contents[j].weights.size(); k++) //previous layer
-					{
-						float change = this->rows[i].contents[j].delta * this->rows[i-1].contents[k].value;
-						float change2 = m*change + n*this->rows[i].contents[j].last_change[k];
-
-						this->rows[i].contents[j].weights[k] += change2;
-						this->rows[i].contents[j].last_change[k] = change;
-					}
-				}
-			}
+			int s = (int)this->rows.size();
+			if(s-1 == i)
+				this->rows[i].correct(v,m,n,this->rows[i-1],this->rows[i-1]);
+			else
+				this->rows[i].correct(v,m,n,this->rows[i-1],this->rows[i+1]);
 		}
 		error = 0;
 		float out_index = 0;
@@ -241,7 +322,7 @@ class network
 		input_layer.push_back(neuron(0,1));
 		rowcount++;
 
-		row.push_back(neuron_row(input_layer));
+		row.push_back(neuron_row(input_layer,0));
 
 		for(int i = 0; i < hidden_rows; i++) //"Rows" in Hidden Layers
 		{
@@ -264,7 +345,7 @@ class network
 			}
 
 			rowcount++;
-			row.push_back(neuron_row(hidden_layer));
+			row.push_back(neuron_row(hidden_layer,0));
 		}
 
 		//Output node/layer
@@ -278,7 +359,7 @@ class network
 				output_layer[i].last_change.push_back(0);
 			}
 		}
-		row.push_back(neuron_row(output_layer));
+		row.push_back(neuron_row(output_layer,1));
 		this->rows = row;
 	}
 	network(int in, int hidden_rows, int hidden_cols, int out, int bias = 0)
@@ -372,7 +453,7 @@ int hpx_main()
 		if(valid) std::cout << "\033[32mCorrect!\033[0m  \t";
 		else std::cout << "\033[31mIncorrect!\033[0m\t";
 
-		float error = n.correct_serial(target,0.05,0.01);
+		float error = n.correct(target,0.05,0.01);
 		std::cout << error;
 		std::cout << "\n";
 	}
