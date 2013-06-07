@@ -1,0 +1,3 @@
+#!/bin/bash
+export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/home/mlesane/hpx_bld/lib/pkgconfig
+g++ -Wno-sign-compare -o $1 $1.cpp `pkg-config --cflags --libs hpx_application` -liostreams -DHPX_APPLICATION_NAME=$1 2> ~/error.out
