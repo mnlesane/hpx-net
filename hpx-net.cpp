@@ -117,7 +117,7 @@ std::vector<float> future_get_roots(std::vector<neuron> contents)
 {
 	std::vector<float> result;
 	for(int i = 0; i < (int)contents.size(); i++)
-		result.push_back(contents[i].new_value.get());
+		result.push_back(f(contents[i].new_value.get()));
 	return result;
 }
 std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> contents)
@@ -146,12 +146,13 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 
 		hpx::naming::id_type const locality_id = hpx::find_here();
 
-		std::vector<float> activation_roots = extract_roots(roots);
+		//std::vector<float> activation_roots = future_get_roots(roots);
 
-		ps_action psum;
+		//ps_action psum;
 
 		//this->new_value = hpx::lcos::make_ready_future(productsum(activation_roots,this->weights));
-		this->new_value = hpx::async(psum, locality_id, activation_roots, this->weights);
+		//this->new_value = hpx::async(psum, locality_id, activation_roots, this->weights);
+		this->new_value = future_productsum(extract_future_roots(roots),this->weights);
 	}
 	float neuron::get_value()
 	{
@@ -182,7 +183,7 @@ class neuron_row
 		//if(this->out)
 			for(int i = 0; i < (int)this->contents.size(); i++)
 			{
-				this->contents[i].get_value();
+				//this->contents[i].get_value();
 			}
 	}
 
@@ -206,14 +207,14 @@ class neuron_row
 	       			float target = v[j];
 	       			//v.erase(v.begin(),v.begin()+1);
 
-       				error = target - this->contents[j].value;
+       				error = target - this->contents[j].get_value();
 
-       				float dfunc = df(this->contents[j].value);
+       				float dfunc = df(this->contents[j].get_value());
        				this->contents[j].delta = error*dfunc;
 
        				for(int k = 0; k < (int)this->size(); k++) //previous layer
        				{
-	       				float change = this->contents[j].delta*prev.contents[k].value;
+	       				float change = this->contents[j].delta*prev.contents[k].get_value();
 	       				float change2 = m*change + n*this->contents[j].last_change[k];
 
 		       			this->contents[j].weights[k] += change2;
@@ -228,11 +229,11 @@ class neuron_row
        					if(next.contents[k].bias) continue;
        					error += next.contents[k].delta * next.contents[k].weights[j];
        				}
-       				this->contents[j].delta = error*df(this->contents[j].value);
+       				this->contents[j].delta = error*df(this->contents[j].get_value());
 
        				for(int k = 0; k < (int)this->contents[j].weights.size(); k++) //previous layer
        				{
-	       				float change = this->contents[j].delta * prev.contents[k].value;
+	       				float change = this->contents[j].delta * prev.contents[k].get_value();
 	       				float change2 = m*change + n*this->contents[j].last_change[k];
 
        					this->contents[j].weights[k] += change2;
@@ -298,7 +299,7 @@ class network
 
 		for(int i = 0; i < (int)this->rows[this->rows.size()-1].size(); i++)
 		{
-			error += 0.5*pow(vi[out_index]-this->rows[this->rows.size()-1].contents[i].value,2);
+			error += 0.5*pow(vi[out_index]-this->rows[this->rows.size()-1].contents[i].get_value(),2);
 			out_index++;
 		}
 		return error;
@@ -374,7 +375,7 @@ class network
 			std::cout << "ROW " << i << "\n";
 			for(int j = 0; j < (int)this->rows[i].contents.size(); j++)
 			{
-				std::cout << "\tCOL " << j << " -> VAL " << this->rows[i].contents[j].value << "\n";
+				std::cout << "\tCOL " << j << " -> VAL " << this->rows[i].contents[j].get_value() << "\n";
 				for(int k = 0; k < (int)this->rows[i].contents[j].weights.size(); k++)
 				{
 					std::cout << "\t\tWEIGHT " << k << ": " << this->rows[i].contents[j].weights[k] << "\n";
@@ -435,11 +436,11 @@ int hpx_main()
 		for(int it = 0; it < (int)n.rows[n.rows.size()-1].contents.size(); it++)
 		{
 			int counter = 0;
-			float r = n.rows[n.rows.size()-1].contents[it].value;
+			float r = n.rows[n.rows.size()-1].contents[it].get_value();
 			if(r < 0) r = 0;
 			r = round(r);
 			std::cout << r << " ";
-			if(round(n.rows[n.rows.size()-1].contents[it].value) != targets[s][counter]) valid = 0;
+			if(round(n.rows[n.rows.size()-1].contents[it].get_value()) != targets[s][counter]) valid = 0;
 			else counter++;
 		}
 
