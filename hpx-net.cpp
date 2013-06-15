@@ -117,7 +117,7 @@ std::vector<float> future_get_roots(std::vector<neuron> contents)
 {
 	std::vector<float> result;
 	for(int i = 0; i < (int)contents.size(); i++)
-		result.push_back(f(contents[i].new_value.get()));
+		result.push_back(contents[i].get_value());
 	return result;
 }
 std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> contents)
@@ -144,13 +144,11 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 	{
 		if(this->bias) return;
 
-		hpx::naming::id_type const locality_id = hpx::find_here();
-
-		//std::vector<float> activation_roots = future_get_roots(roots);
-
+		//hpx::naming::id_type const locality_id = hpx::find_here();
 		//ps_action psum;
 
-		//this->new_value = hpx::lcos::make_ready_future(productsum(activation_roots,this->weights));
+		//this->new_value = hpx::lcos::make_ready_future(productsum(extract_roots(roots),this->weights));
+		//this->value = f(productsum(extract_roots(roots),this->weights));
 		//this->new_value = hpx::async(psum, locality_id, activation_roots, this->weights);
 		this->new_value = future_productsum(extract_future_roots(roots),this->weights);
 	}
@@ -304,6 +302,68 @@ class network
 		}
 		return error;
 	}
+        float correct_serial(std::vector<float> v, float m /*learning_rate*/, float n /*momentum*/)
+        {
+                std::vector<float> vi = v;
+                //v = this->reverse(v);
+
+                float error;
+
+                for(int i = (int)this->rows.size()-1; i >= 1; i--)
+                {
+                        for(int j = 0; j < (int)this->rows[i].size(); j++)
+                        {
+                                if(this->rows[i].contents[j].bias == 1) continue;
+                                if(i == (int)this->rows.size()-1) //output deltas
+                                {
+                                        float target = v[0];
+                                        v.erase(v.begin(),v.begin()+1);
+
+                                        error = target - this->rows[i].contents[j].get_value();
+
+                                        float dfunc = df(this->rows[i].contents[j].get_value());
+                                        this->rows[i].contents[j].delta = error*dfunc;
+
+                                        for(int k = 0; k < (int)this->rows[i-1].size(); k++) //previous layer
+                                        {
+                                                float change = this->rows[i].contents[j].delta*this->rows[i-1].contents[k].get_value();
+                                                float change2 = m*change + n*this->rows[i].contents[j].last_change[k];
+
+                                                this->rows[i].contents[j].weights[k] += change2;
+                                                this->rows[i].contents[j].last_change[k] = change;
+                                        }
+                                }
+                                else //hidden deltas
+                                {
+                                        error = 0;
+                                        for(int k = 0; k < (int)this->rows[i+1].size(); k++)
+                                        {
+						if(!this->rows[i+1].contents[k].bias)
+                                                error += this->rows[i+1].contents[k].delta * this->rows[i+1].contents[k].weights[j];
+                                        }
+                                        this->rows[i].contents[j].delta = error*df(this->rows[i].contents[j].get_value());
+
+                                        for(int k = 0; k < (int)this->rows[i].contents[j].weights.size(); k++) //previous layer
+                                        {
+                                                float change = this->rows[i].contents[j].delta * this->rows[i-1].contents[k].get_value();
+                                                float change2 = m*change + n*this->rows[i].contents[j].last_change[k];
+
+                                                this->rows[i].contents[j].weights[k] += change2;
+                                                this->rows[i].contents[j].last_change[k] = change;
+                                        }
+                                }
+                        }
+                }
+                error = 0;
+                float out_index = 0;
+
+                for(int i = 0; i < (int)this->rows[this->rows.size()-1].size(); i++)
+                {
+                        error += 0.5*pow(vi[out_index]-this->rows[this->rows.size()-1].contents[i].get_value(),2);
+                        out_index++;
+                }
+                return error;
+        }
 	network()
 	{
 	}
@@ -394,7 +454,9 @@ std::vector<float> to_vector(float x[],int s)
 
 int hpx_main()
 {
-	network n(2,10,20,1,1);
+	int in, hidden_rows, hidden_cols, out;
+
+	network n(2,1,2,1,1);
 
 //XOR
 	float tests[][2] =
@@ -454,7 +516,7 @@ int hpx_main()
 		if(valid) std::cout << "\033[32mCorrect!\033[0m  \t";
 		else std::cout << "\033[31mIncorrect!\033[0m\t";
 
-		float error = n.correct(target,0.05,0.01);
+		float error = n.correct_serial(target,0.05,0.01);
 		std::cout << error;
 		std::cout << "\n";
 	}
