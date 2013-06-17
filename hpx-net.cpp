@@ -42,9 +42,7 @@ float productsum(std::vector<float> roots, std::vector<float> weights)
 {
 	float out = 0;
 	for(int i = 0; i < (int)roots.size(); i++)
-	{
 		out += roots[i]*weights[i];
-	}
 	return out;
 }
 
@@ -184,14 +182,7 @@ class neuron_row
 	void run(std::vector<neuron> roots)
 	{
 		for(int i = 0; i < (int)this->contents.size(); i++)
-		{
 			this->contents[i].run(roots);
-		}
-		//if(this->out)
-			for(int i = 0; i < (int)this->contents.size(); i++)
-			{
-				//this->contents[i].get_value();
-			}
 	}
 
 	void add(neuron x)
@@ -211,42 +202,26 @@ class neuron_row
        			if(this->contents[j].bias == 1) continue;
 	       		if((int)this->out) //output deltas
 	       		{
-	       			float target = v[0];
-	       			v.erase(v.begin(),v.begin()+1);
-
+	       			float target = v[j];
        				error = target - this->contents[j].get_value();
-
        				float dfunc = df(this->contents[j].get_value());
        				this->contents[j].delta = error*dfunc;
-
-       				for(int k = 0; k < (int)prev.size(); k++) //previous layer
-       				{
-	       				float change = this->contents[j].delta*prev.contents[k].get_value();
-	       				float change2 = m*change + n*this->contents[j].last_change[k];
-
-		       			this->contents[j].weights[k] += change2;
-		       			this->contents[j].last_change[k] = change;
-	       			}
        			}
        			else //hidden deltas
        			{
        				error = 0;
        				for(int k = 0; k < (int)next.size(); k++)
-       				{
        					if(next.contents[k].bias) continue;
-       					error += next.contents[k].delta * next.contents[k].weights[j];
-       				}
+       					else error += next.contents[k].delta * next.contents[k].weights[j];
        				this->contents[j].delta = error*df(this->contents[j].get_value());
-
-       				for(int k = 0; k < (int)this->contents[j].weights.size(); k++) //previous layer
-       				{
-	       				float change = this->contents[j].delta * prev.contents[k].get_value();
-	       				float change2 = m*change + n*this->contents[j].last_change[k];
-
-       					this->contents[j].weights[k] += change2;
-       					this->contents[j].last_change[k] = change;
-       				}
        			}
+			for(int k = 0; k < (int)prev.size(); k++) //previous layer
+			{
+       				float change = this->contents[j].delta * prev.contents[k].get_value();
+       				float change2 = m*change + n*this->contents[j].last_change[k];
+				this->contents[j].weights[k] += change2;
+				this->contents[j].last_change[k] = change;
+			}
        		}
 	}
 };
@@ -297,8 +272,7 @@ class network
 			int s = (int)this->rows.size();
 			if(s-1 == i)
 				this->rows[i].correct(v,m,n,this->rows[i-1],this->rows[i-1]);
-			else
-				this->rows[i].correct(v,m,n,this->rows[i-1],this->rows[i+1]);
+			else	this->rows[i].correct(v,m,n,this->rows[i-1],this->rows[i+1]);
 		}
 		error = 0;
 		float out_index = 0;
