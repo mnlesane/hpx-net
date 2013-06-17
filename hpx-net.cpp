@@ -202,15 +202,15 @@ class neuron_row
        			if(this->contents[j].bias == 1) continue;
 	       		if((int)this->out) //output deltas
 	       		{
-	       			float target = v[j];
-	       			//v.erase(v.begin(),v.begin()+1);
+	       			float target = v[0];
+	       			v.erase(v.begin(),v.begin()+1);
 
        				error = target - this->contents[j].get_value();
 
        				float dfunc = df(this->contents[j].get_value());
        				this->contents[j].delta = error*dfunc;
 
-       				for(int k = 0; k < (int)this->size(); k++) //previous layer
+       				for(int k = 0; k < (int)prev.size(); k++) //previous layer
        				{
 	       				float change = this->contents[j].delta*prev.contents[k].get_value();
 	       				float change2 = m*change + n*this->contents[j].last_change[k];
@@ -516,7 +516,7 @@ int hpx_main()
 		if(valid) std::cout << "\033[32mCorrect!\033[0m  \t";
 		else std::cout << "\033[31mIncorrect!\033[0m\t";
 
-		float error = n.correct_serial(target,0.05,0.01);
+		float error = n.correct(target,0.05,0.01);
 		std::cout << error;
 		std::cout << "\n";
 	}
