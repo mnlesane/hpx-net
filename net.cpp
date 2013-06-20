@@ -166,7 +166,7 @@ class network
 				{
 					error = 0;
 					for(int k = 0; k < (int)this->rows[i+1].size(); k++)
-					{
+					{       if(this->rows[i+1].contents[k].bias) continue;
 						error += this->rows[i+1].contents[k].delta * this->rows[i+1].contents[k].weights[j];
 					}
 					this->rows[i].contents[j].delta = error*df(this->rows[i].contents[j].value);
@@ -278,7 +278,7 @@ std::vector<float> to_vector(float x[],int s)
 	for(int i = 0; i < s; i++) out.push_back(x[i]);
 	return out;
 }
-/*
+
 int main()
 {
 	network n(2,1,2,1,1);
@@ -299,7 +299,7 @@ int main()
 		{0.0}
 	};
 
-	for(int i = 0; i < 5000; i++)
+	for(int i = 0; i < 1000000; i++)
 	{
 		std::cout << i << " ";
 		int s = i%(sizeof(tests)/sizeof(tests[0]));
@@ -346,4 +346,4 @@ int main()
 		std::cout << "\n";
 	}
 	return 0;
-}*/
+}/**/
