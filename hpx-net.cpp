@@ -9,7 +9,7 @@
 #include <hpx/include/actions.hpp>
 #include <hpx/include/util.hpp>
 #include <hpx/include/lcos.hpp>
-#include <hpx/util/unwrap.hpp>
+#include <hpx/util/unwrapped.hpp>
 
 float productsum(std::vector<float>,std::vector<float>);
 
@@ -53,7 +53,7 @@ hpx::lcos::future<float> future_productsum(std::vector<hpx::lcos::future<float>>
 	{
 		hpx::lcos::future<float> add = hpx::lcos::local::dataflow
 		(
-			hpx::util::unwrap
+			hpx::util::unwrapped
 			( [] (float a, float b)
 			{
 				return a*b;
@@ -62,10 +62,11 @@ hpx::lcos::future<float> future_productsum(std::vector<hpx::lcos::future<float>>
 		);
 		out = hpx::lcos::local::dataflow
 		(
-			hpx::util::unwrap
+			hpx::util::unwrapped
 			( [] (float a, float b)
 			{
 				return a+b;
+
 			}
 			),out,add
 		);
@@ -94,7 +95,7 @@ class neuron
 	{
 		return hpx::lcos::local::dataflow
 		(
-			hpx::util::unwrap
+			hpx::util::unwrapped
 			( [] (float a)
 			{
 				return f(a);
@@ -147,7 +148,8 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 	void neuron::run(std::vector<neuron> roots)
 	{
 		if(this->bias) return;
-		this->new_value = future_productsum(extract_future_roots(roots),this->weights);
+		this->new_value = hpx::lcos::make_ready_future(productsum(future_get_roots(roots),this->weights));
+							       //this->new_value = future_productsum(extract_future_roots(roots),this->weights);
 	}
 	float neuron::get_value()
 	{
@@ -284,6 +286,67 @@ class network
 		}
 		return error;
 	}
+  float correct_serial(std::vector<float> v, float m /*learning_rate*/, float n /*momentum*/)
+  {
+    std::vector<float> vi = v;
+    //v = this->reverse(v);
+
+    float error;
+
+    for(int i = (int)this->rows.size()-1; i >= 1; i--)
+      {
+	for(int j = 0; j < (int)this->rows[i].size(); j++)
+	  {
+	    if(this->rows[i].contents[j].bias == 1) continue;
+	    if(i == (int)this->rows.size()-1) //output deltas
+	      {
+		float target = v[0];
+		v.erase(v.begin(),v.begin()+1);
+
+		error = target - this->rows[i].contents[j].get_value();
+
+		float dfunc = df(this->rows[i].contents[j].get_value());
+		this->rows[i].contents[j].delta = error*dfunc;
+
+		for(int k = 0; k < (int)this->rows[i-1].size(); k++) //previous layer
+		  {
+		    float change = this->rows[i].contents[j].delta*this->rows[i-1].contents[k].get_value();
+		    float change2 = m*change + n*this->rows[i].contents[j].last_change[k];
+
+		    this->rows[i].contents[j].weights[k] += change2;
+		    this->rows[i].contents[j].last_change[k] = change;
+		  }
+	      }
+	    else //hidden deltas
+	      {
+		error = 0;
+		for(int k = 0; k < (int)this->rows[i+1].size(); k++)
+		  {
+		    error += this->rows[i+1].contents[k].delta * this->rows[i+1].contents[k].weights[j];
+		  }
+		this->rows[i].contents[j].delta = error*df(this->rows[i].contents[j].get_value());
+
+		for(int k = 0; k < (int)this->rows[i].contents[j].weights.size(); k++) //previous layer
+		  {
+		    float change = this->rows[i].contents[j].delta * this->rows[i-1].contents[k].get_value();
+		    float change2 = m*change + n*this->rows[i].contents[j].last_change[k];
+
+		    this->rows[i].contents[j].weights[k] += change2;
+		    this->rows[i].contents[j].last_change[k] = change;
+		  }
+	      }
+	  }
+      }
+    error = 0;
+    float out_index = 0;
+
+    for(int i = 0; i < (int)this->rows[this->rows.size()-1].size(); i++)
+      {
+	error += 0.5*pow(vi[out_index]-this->rows[this->rows.size()-1].contents[i].get_value(),2);
+	out_index++;
+      }
+    return error;
+  }
 	//TODO: Create network in parallel 
 	void init(int in, int hidden_rows, int hidden_cols, int out, int bias = 0)
 	{
@@ -332,6 +395,7 @@ std::vector<float> to_vector(float x[],int s)
 int hpx_main()
 {
 	int in, hidden_rows, hidden_cols, out, its;
+	/*
 	std::cin
 		>> in
 		>> hidden_rows
@@ -340,8 +404,13 @@ int hpx_main()
 		>> its;
 
 	network n(in,hidden_rows,hidden_cols,out,1);
-
+	*/
+	its = 5000;
+	network n(2,1,2,1,5000);
 //XOR
+		int problem_count = 4;
+		int problem_correct = 0;
+
 	float tests[][2] =
 	{
 		{0.0,0.0},
@@ -396,17 +465,29 @@ int hpx_main()
 			if(it < (int)(sizeof(targets[0])/sizeof(targets[0][0]))-1) std::cout << " ";
 		}
 		std::cout << ")";
-		if(valid) std::cout << "\033[32mCorrect!\033[0m  \t";
-		else std::cout << "\033[31mIncorrect!\033[0m\t";
+		if(valid)
+		  {
+		    problem_correct++;
+		    std::cout << "\033[32mCorrect!\033[0m  \t";
+		  }
+		else
+		  {
+		    problem_correct = 0;
+		    std::cout << "\033[31mIncorrect!\033[0m\t";
+		  }
 
-		float error = n.correct(target,0.05,0.01);
+		float error =
+		  //n.correct(target,0.05,0.01);
+		  n.correct_serial(target,0.05,0.01);
 		std::cout << error;
 		std::cout << "\n";
+
+	      	if(problem_count == problem_correct) break;
 	}
 	return hpx::finalize();
 }
 
 int main(int argc, char* argv[])
 {
-  return hpx::init(argc,argv);
+  for(int i = 0; i < 500; i++) hpx::init(argc,argv);
 }
