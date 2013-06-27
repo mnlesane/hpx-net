@@ -394,6 +394,7 @@ std::vector<float> to_vector(float x[],int s)
 
 int hpx_main()
 {
+  init();
 	int in, hidden_rows, hidden_cols, out, its;
 	/*
 	std::cin
@@ -406,7 +407,7 @@ int hpx_main()
 	network n(in,hidden_rows,hidden_cols,out,1);
 	*/
 	its = 5000;
-	network n(2,1,2,1,5000);
+	network n(2,10,20,1,5000);
 //XOR
 		int problem_count = 4;
 		int problem_correct = 0;
@@ -426,9 +427,12 @@ int hpx_main()
 		{0.0}
 	};
 
-	for(int i = 0; i < its; i++)
+	int display_output = 0;
+
+	int i = 0;
+	for(i = 0; ; i++)
 	{
-		std::cout << i << " ";
+	        if(display_output) std::cout << i << " ";
 		int s = i%(sizeof(tests)/sizeof(tests[0]));
 
 		std::vector<float> sensor = to_vector(tests[s],sizeof(tests[s])/sizeof(float));
@@ -436,14 +440,16 @@ int hpx_main()
 		n.setSensors(sensor);
 		n.run();
 
-		std::cout << "(";
-		for(int it = 0; it < (int)(sizeof(tests[0])/sizeof(tests[0][0])); it++)
+		if(display_output)
 		{
+		    std::cout << "(";
+		    for(int it = 0; it < (int)(sizeof(tests[0])/sizeof(tests[0][0])); it++)
+		      {
 			std::cout << sensor[it];
 			if(it < (int)(sizeof(tests[0])/sizeof(tests[0][0]))-1) std::cout << " ";
+		      }
+		    std::cout << ") = ";
 		}
-
-		std::cout << ") = ";
 
 		int valid = 1;
 
@@ -453,37 +459,47 @@ int hpx_main()
 			float r = n.rows[n.rows.size()-1].contents[it].get_value();
 			if(r < 0) r = 0;
 			r = round(r);
-			std::cout << r << " ";
+			if(display_output) std::cout << r << " ";
 			if(round(n.rows[n.rows.size()-1].contents[it].get_value()) != targets[s][counter]) valid = 0;
 			else counter++;
 		}
 
-		std::cout << "(";
+		if(display_output)
+		    std::cout << "(";
+
+		if(display_output)
 		for(int it = 0; it < (int)(sizeof(targets[0])/sizeof(targets[0][0])); it++)
-		{
-			std::cout << target[it];
-			if(it < (int)(sizeof(targets[0])/sizeof(targets[0][0]))-1) std::cout << " ";
-		}
-		std::cout << ")";
-		if(valid)
 		  {
-		    problem_correct++;
-		    std::cout << "\033[32mCorrect!\033[0m  \t";
+		    std::cout << target[it];
+		    if(it < (int)(sizeof(targets[0])/sizeof(targets[0][0]))-1) std::cout << " ";
 		  }
-		else
-		  {
-		    problem_correct = 0;
-		    std::cout << "\033[31mIncorrect!\033[0m\t";
-		  }
+		if(display_output)
+	          std::cout << ")";
+
+		  if(valid)
+		    {
+		      problem_correct++;
+		      if(display_output) std::cout << "\033[32mCorrect!\033[0m  \t";
+		    }
+		  else
+		    {
+		      problem_correct = 0;
+		      if(display_output) std::cout << "\033[31mIncorrect!\033[0m\t";
+		    }
 
 		float error =
 		  //n.correct(target,0.05,0.01);
 		  n.correct_serial(target,0.05,0.01);
-		std::cout << error;
-		std::cout << "\n";
+
+		if(display_output)
+		  {
+		    std::cout << error;
+		    std::cout << "\n";
+		  }
 
 	      	if(problem_count == problem_correct) break;
 	}
+	std::cout << i << " iterations.\n";
 	return hpx::finalize();
 }
 

@@ -279,9 +279,10 @@ std::vector<float> to_vector(float x[],int s)
 	return out;
 }
 
-int main()
+int main_main()
 {
-	network n(2,1,2,1,1);
+  init();
+	network n(2,10,20,1,1);
 
 //XOR
 	float tests[][2] =
@@ -299,9 +300,17 @@ int main()
 		{0.0}
 	};
 
-	for(int i = 0; i < 1000000; i++)
+	int problem_count = 4;
+	int problem_correct = 0;
+	int disp = 0;
+
+	int i = 0;
+
+	//	float lr = 0.05;
+
+	for(i = 0;; i++)
 	{
-		std::cout << i << " ";
+	  if(disp) std::cout << i << " ";
 		int s = i%(sizeof(tests)/sizeof(tests[0]));
 
 		std::vector<float> sensor = to_vector(tests[s],sizeof(tests[s])/sizeof(float));
@@ -309,14 +318,16 @@ int main()
 		n.setSensors(sensor);
 		n.run();
 
-		std::cout << "(";
+		if(disp) std::cout << "(";
+
+		if(disp)
 		for(int it = 0; it < sizeof(tests[0])/sizeof(tests[0][0]); it++)
 		{
-			std::cout << sensor[it];
+		  std::cout << sensor[it];
 			if(it < sizeof(tests[0])/sizeof(tests[0][0])-1) std::cout << " ";
 		}
 
-		std::cout << ") = ";
+		if(disp) std::cout << ") = ";
 
 		int valid = 1;
 
@@ -326,24 +337,42 @@ int main()
 			float r = n.rows[n.rows.size()-1].contents[it].value;
 			if(r < 0) r = 0;
 			r = round(r);
-			std::cout << r << " ";
+			if(disp) std::cout << r << " ";
 			if(round(n.rows[n.rows.size()-1].contents[it].value) != targets[s][counter]) valid = 0;
 			else counter++;
 		}
 
-		std::cout << "(";
+		if(disp) std::cout << "(";
+
+		if(disp)
 		for(int it = 0; it < sizeof(targets[0])/sizeof(targets[0][0]); it++)
 		{
 			std::cout << target[it];
 			if(it < sizeof(targets[0])/sizeof(targets[0][0])-1) std::cout << " ";
 		}
-		std::cout << ")";
-		if(valid) std::cout << "\033[32mCorrect!\033[0m  \t";
-		else std::cout << "\033[31mIncorrect!\033[0m\t";
 
+		if(disp) std::cout << ")";
+
+		if(valid)
+		  {
+		    problem_correct++;
+		    if(disp) std::cout << "\033[32mCorrect!\033[0m  \t";
+		  }
+		else
+		  {
+		    problem_correct = 0;
+		    if(disp) std::cout << "\033[31mIncorrect!\033[0m\t";
+		  }
 		float error = n.correct_serial(target,0.05,0.01);
-		std::cout << error;
-		std::cout << "\n";
-	}
+
+		if(disp) std::cout << error;
+		if(disp) std::cout << "\n";
+		if(problem_correct == problem_count) break;
+	}std::cout << i << " iterations.\n";
 	return 0;
 }/**/
+int main()
+{
+  for(int i = 0; i < 100; i++)
+      main_main();
+}
