@@ -137,7 +137,7 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 		{
 			this->value = 1.0;
 			this->new_value = hpx::lcos::make_ready_future((float)1.0);
-		}
+		}  else this->new_value = hpx::lcos::make_ready_future((float)0.0);
 		//Activation-related data
 		for(int k = 0; k < count_activations; k++)
 		{
@@ -148,8 +148,8 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 	void neuron::run(std::vector<neuron> roots)
 	{
 		if(this->bias) return;
-		this->new_value = hpx::lcos::make_ready_future(productsum(future_get_roots(roots),this->weights));
-							       //this->new_value = future_productsum(extract_future_roots(roots),this->weights);
+		//this->new_value = hpx::lcos::make_ready_future(productsum(future_get_roots(roots),this->weights));
+	        this->new_value = future_productsum(extract_future_roots(roots),this->weights);
 	}
 	float neuron::get_value()
 	{
@@ -178,6 +178,7 @@ class neuron_row
 			init.push_back(neuron(0,count_activations,random));
 	if(bias)	init.push_back(neuron(1,count_activations,random));
 		this->contents = init;
+//		std::cout << this->contents.size() << " ";
 		this->out = out;
 	}
 
@@ -322,6 +323,12 @@ class network
 		error = 0;
 		for(int k = 0; k < (int)this->rows[i+1].size(); k++)
 		  {
+		    if(this->rows[i+1].contents[k].bias) continue;
+/*
+		    std::cout << this->rows.size() << "\t" << (i+1) << "\n";
+		    std::cout << this->rows[i+1].contents.size() << "\t" << k << "\n";
+		    std::cout << "->" << this->rows[i+1].contents[k].weights.size() << "..\t" << j << "\n";
+/**/
 		    error += this->rows[i+1].contents[k].delta * this->rows[i+1].contents[k].weights[j];
 		  }
 		this->rows[i].contents[j].delta = error*df(this->rows[i].contents[j].get_value());
@@ -350,6 +357,9 @@ class network
 	//TODO: Create network in parallel 
 	void init(int in, int hidden_rows, int hidden_cols, int out, int bias = 0)
 	{
+
+//	neuron_row(int neurons, int out, int bias, int count_activations, int random)
+
 		std::vector<neuron_row> row;
 
 		//Input Layer
@@ -360,7 +370,7 @@ class network
 			row.push_back(neuron_row(hidden_cols,0,1,row[i].size(),1));
 
 		//Output Layer
-		row.push_back(neuron_row(out,1,0,hidden_cols,1));
+		row.push_back(neuron_row(out,1,0,hidden_cols+1,1));
 		this->rows = row;
 	}
 	network(int in, int hidden_rows, int hidden_cols, int out, int bias = 0)
@@ -375,7 +385,8 @@ class network
 			std::cout << "ROW " << i << "\n";
 			for(int j = 0; j < (int)this->rows[i].contents.size(); j++)
 			{
-				std::cout << "\tCOL " << j << " -> VAL " << this->rows[i].contents[j].get_value() << "\n";
+				std::cout << "\tCOL " << j << " -> ";
+				std::cout << "VAL " << this->rows[i].contents[j].get_value() << "\n";
 				for(int k = 0; k < (int)this->rows[i].contents[j].weights.size(); k++)
 				{
 					std::cout << "\t\tWEIGHT " << k << ": " << this->rows[i].contents[j].weights[k] << "\n";
@@ -392,26 +403,6 @@ std::vector<float> to_vector(float x[],int s)
 	return out;
 }
 
-int hpx_main()
-{
-  init();
-	int in, hidden_rows, hidden_cols, out, its;
-	/*
-	std::cin
-		>> in
-		>> hidden_rows
-		>> hidden_cols
-		>> out
-		>> its;
-
-	network n(in,hidden_rows,hidden_cols,out,1);
-	*/
-	its = 5000;
-	network n(2,10,20,1,5000);
-//XOR
-		int problem_count = 4;
-		int problem_correct = 0;
-
 	float tests[][2] =
 	{
 		{0.0,0.0},
@@ -427,10 +418,32 @@ int hpx_main()
 		{0.0}
 	};
 
+int main_main()
+{
+//  std::cout << "Initializing simulation... ";
+	//int in, hidden_rows, hidden_cols, out, its;
+	/*
+	std::cin
+		>> in
+		>> hidden_rows
+		>> hidden_cols
+		>> out
+		>> its;
+
+	network n(in,hidden_rows,hidden_cols,out,1);
+	*/
+	//its = 5000;
+	network n(2,1,2,1,1);
+	//n.profile();
+//XOR
+		int problem_count = 4;
+		int problem_correct = 0;
+
 	int display_output = 0;
 
+//	std::cout << "Done.\n";
 	int i = 0;
-	for(i = 0; ; i++)
+	for(i = 0; i < 5000; i++)
 	{
 	        if(display_output) std::cout << i << " ";
 		int s = i%(sizeof(tests)/sizeof(tests[0]));
@@ -487,9 +500,11 @@ int hpx_main()
 		      if(display_output) std::cout << "\033[31mIncorrect!\033[0m\t";
 		    }
 
+//		if(!display_output) std::cout << "Backpropagating...\n";
 		float error =
 		  //n.correct(target,0.05,0.01);
 		  n.correct_serial(target,0.05,0.01);
+//		if(!display_output) std::cout << "Done.\n";
 
 		if(display_output)
 		  {
@@ -500,10 +515,18 @@ int hpx_main()
 	      	if(problem_count == problem_correct) break;
 	}
 	std::cout << i << " iterations.\n";
-	return hpx::finalize();
+  return 0;
+}
+
+int hpx_main()
+{
+  for(int i = 0; ; i++)
+    main_main();
+  return hpx::finalize();
 }
 
 int main(int argc, char* argv[])
 {
-  for(int i = 0; i < 500; i++) hpx::init(argc,argv);
+  init();
+  hpx::init(argc,argv);
 }
