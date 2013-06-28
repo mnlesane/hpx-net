@@ -357,20 +357,20 @@ class network
 	//TODO: Create network in parallel 
 	void init(int in, int hidden_rows, int hidden_cols, int out, int bias = 0)
 	{
-
+		int random = 0;
 //	neuron_row(int neurons, int out, int bias, int count_activations, int random)
 
 		std::vector<neuron_row> row;
 
 		//Input Layer
-		row.push_back(neuron_row(in,0,1,0,1));
+		row.push_back(neuron_row(in,0,1,0,random));
 
 		//Hiden Layers
 		for(int i = 0; i < hidden_rows; i++)
-			row.push_back(neuron_row(hidden_cols,0,1,row[i].size(),1));
+			row.push_back(neuron_row(hidden_cols,0,1,row[i].size(),random));
 
 		//Output Layer
-		row.push_back(neuron_row(out,1,0,hidden_cols+1,1));
+		row.push_back(neuron_row(out,1,0,hidden_cols+1,random));
 		this->rows = row;
 	}
 	network(int in, int hidden_rows, int hidden_cols, int out, int bias = 0)
@@ -502,8 +502,8 @@ int main_main()
 
 //		if(!display_output) std::cout << "Backpropagating...\n";
 		float error =
-		  //n.correct(target,0.05,0.01);
-		  n.correct_serial(target,0.05,0.01);
+		  n.correct(target,0.05,0.01);
+//		  n.correct_serial(target,0.05,0.01);
 //		if(!display_output) std::cout << "Done.\n";
 
 		if(display_output)
@@ -520,8 +520,10 @@ int main_main()
 
 int hpx_main()
 {
-  for(int i = 0; ; i++)
+  hpx::util::high_resolution_timer t;
+  for(int i = 0; i < 100; i++)
     main_main();
+  std::cout << t.elapsed() << "\n";
   return hpx::finalize();
 }
 
