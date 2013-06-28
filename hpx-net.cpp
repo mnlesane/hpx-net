@@ -287,73 +287,7 @@ class network
 		}
 		return error;
 	}
-  float correct_serial(std::vector<float> v, float m /*learning_rate*/, float n /*momentum*/)
-  {
-    std::vector<float> vi = v;
-    //v = this->reverse(v);
 
-    float error;
-
-    for(int i = (int)this->rows.size()-1; i >= 1; i--)
-      {
-	for(int j = 0; j < (int)this->rows[i].size(); j++)
-	  {
-	    if(this->rows[i].contents[j].bias == 1) continue;
-	    if(i == (int)this->rows.size()-1) //output deltas
-	      {
-		float target = v[0];
-		v.erase(v.begin(),v.begin()+1);
-
-		error = target - this->rows[i].contents[j].get_value();
-
-		float dfunc = df(this->rows[i].contents[j].get_value());
-		this->rows[i].contents[j].delta = error*dfunc;
-
-		for(int k = 0; k < (int)this->rows[i-1].size(); k++) //previous layer
-		  {
-		    float change = this->rows[i].contents[j].delta*this->rows[i-1].contents[k].get_value();
-		    float change2 = m*change + n*this->rows[i].contents[j].last_change[k];
-
-		    this->rows[i].contents[j].weights[k] += change2;
-		    this->rows[i].contents[j].last_change[k] = change;
-		  }
-	      }
-	    else //hidden deltas
-	      {
-		error = 0;
-		for(int k = 0; k < (int)this->rows[i+1].size(); k++)
-		  {
-		    if(this->rows[i+1].contents[k].bias) continue;
-/*
-		    std::cout << this->rows.size() << "\t" << (i+1) << "\n";
-		    std::cout << this->rows[i+1].contents.size() << "\t" << k << "\n";
-		    std::cout << "->" << this->rows[i+1].contents[k].weights.size() << "..\t" << j << "\n";
-/**/
-		    error += this->rows[i+1].contents[k].delta * this->rows[i+1].contents[k].weights[j];
-		  }
-		this->rows[i].contents[j].delta = error*df(this->rows[i].contents[j].get_value());
-
-		for(int k = 0; k < (int)this->rows[i].contents[j].weights.size(); k++) //previous layer
-		  {
-		    float change = this->rows[i].contents[j].delta * this->rows[i-1].contents[k].get_value();
-		    float change2 = m*change + n*this->rows[i].contents[j].last_change[k];
-
-		    this->rows[i].contents[j].weights[k] += change2;
-		    this->rows[i].contents[j].last_change[k] = change;
-		  }
-	      }
-	  }
-      }
-    error = 0;
-    float out_index = 0;
-
-    for(int i = 0; i < (int)this->rows[this->rows.size()-1].size(); i++)
-      {
-	error += 0.5*pow(vi[out_index]-this->rows[this->rows.size()-1].contents[i].get_value(),2);
-	out_index++;
-      }
-    return error;
-  }
 	//TODO: Create network in parallel 
 	void init(int in, int hidden_rows, int hidden_cols, int out, int bias = 0)
 	{
@@ -503,7 +437,6 @@ int main_main()
 //		if(!display_output) std::cout << "Backpropagating...\n";
 		float error =
 		  n.correct(target,0.05,0.01);
-//		  n.correct_serial(target,0.05,0.01);
 //		if(!display_output) std::cout << "Done.\n";
 
 		if(display_output)
