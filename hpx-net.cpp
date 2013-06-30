@@ -88,6 +88,9 @@ class neuron
 
 	hpx::lcos::future<float> get_f_future();
 
+	hpx::lcos::future<float> new_delta;
+	float get_delta();
+
 	float value, bias, delta;
 
 	neuron(float,int,int);
@@ -149,6 +152,11 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 			this->weights.push_back(rnd()-0.5);
 			this->last_change.push_back(0);
 		}
+	}
+	float neuron::get_delta()
+	{
+		this->delta = this->new_delta.get();
+		return this->delta;
 	}
 	void neuron::run(std::vector<neuron> roots)
 	{
@@ -219,13 +227,13 @@ void neuron::correct(float target, int j /* index */, float m, float n, neuron_r
 	if (this->out) error = target - this->get_value();
 	else for (int k = 0; k < (int)next.size(); k++)
 		if (next.contents[k].bias) continue;
-		else error += next.contents[k].delta * next.contents[k].weights[j];
+		else error += next.contents[k].get_delta() * next.contents[k].weights[j];
 
-	this->delta = error * df(this->get_value());
+	this->new_delta = hpx::lcos::make_ready_future(error * df(this->get_value()));
 
 	for(int k = 0; k < (int)prev.size(); k++)
 	{
-		float change = this->delta * prev.contents[k].get_value();
+		float change = this->get_delta() * prev.contents[k].get_value();
 		float change2 = m*change + n*this->last_change[k];
 		this->weights[k] += change2;
 		this->last_change[k] = change;
@@ -359,7 +367,7 @@ int main_main()
 {
 //  std::cout << "Initializing simulation... ";
 
-	network n(2,10,20,1,1);
+	network n(2,1,2,1,1);
 
 	int problem_count = 4;
 	int problem_correct = 0;
