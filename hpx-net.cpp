@@ -82,22 +82,27 @@ class neuron
 
 	std::vector<float> weights;
 	std::vector<float> last_change;
-	hpx::lcos::future<float> new_value;
 
 	float out;
 
 	hpx::lcos::future<float> get_f_future();
 
+	hpx::lcos::future<float> new_value;
 	hpx::lcos::future<float> new_delta;
-	float get_delta();
+	hpx::lcos::future<float> new_error;
 
-	float value, bias, delta;
+	float get_value();
+	float get_delta();
+	float get_error();
+
+	float value, bias, delta, error;
 
 	neuron(float,int,int);
 
-	void run(std::vector<neuron> roots);
-	float get_value();
+	void run(std::vector<neuron> roots,int);
+
 	void correct(float,int,float,float,neuron_row,neuron_row);
+	void finalize_correct(neuron_row,int,float,float);
 };
 	hpx::lcos::future<float> neuron::get_f_future()
 	{
@@ -158,11 +163,16 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 		this->delta = this->new_delta.get();
 		return this->delta;
 	}
-	void neuron::run(std::vector<neuron> roots)
+	float neuron::get_error()
 	{
-		if(this->bias) return;
-		//this->new_value = hpx::lcos::make_ready_future(productsum(future_get_roots(roots),this->weights));
-	        this->new_value = future_productsum(extract_future_roots(roots),this->weights);
+		this->error = this->new_error.get();
+		return this->error;
+	}
+	void neuron::run(std::vector<neuron> roots, int serial = 0)
+	{
+		if (this->bias) return;
+		if (serial) this->new_value = hpx::lcos::make_ready_future(productsum(future_get_roots(roots),this->weights));
+	        else this->new_value = future_productsum(extract_future_roots(roots),this->weights);
 	}
 	float neuron::get_value()
 	{
@@ -218,28 +228,46 @@ class neuron_row
 	}
 };
 
+float calc_hidden_error(neuron_row next,int j)
+{
+	float error = 0;
+	for (int k = 0; k < (int)next.size(); k++)
+		if (next.contents[k].bias) continue;
+		else error += next.contents[k].get_delta() * next.contents[k].weights[j];
+	return error;
+}
+hpx::lcos::future<float> future_hidden_error(neuron_row next,int j)
+{
+	hpx::lcos::future<float> result = hpx::async(&calc_hidden_error,next,j);
+	return result;
+}
 void neuron::correct(float target, int j /* index */, float m, float n, neuron_row prev, neuron_row next)
 {
 	if (this->bias) return;
-
-	float error = 0;
-
-	if (this->out) error = target - this->get_value();
-	else for (int k = 0; k < (int)next.size(); k++)
-		if (next.contents[k].bias) continue;
-		else error += next.contents[k].get_delta() * next.contents[k].weights[j];
-
-	this->new_delta = hpx::lcos::make_ready_future(error * df(this->get_value()));
-
+	if (this->out)	this->new_error = hpx::lcos::make_ready_future(target - this->get_value());
+	else		//this->new_error = hpx::lcos::make_ready_future(calc_hidden_error(next,j));
+			this->new_error = future_hidden_error(next,j);
+			this->new_delta =
+			hpx::lcos::local::dataflow
+			(
+				hpx::util::unwrapped
+				( [] (float error, float value)
+				{
+					return error*df(value);
+				}
+				),this->new_error,hpx::lcos::make_ready_future(this->get_value())
+			);/**/
+			//hpx::lcos::make_ready_future(this->get_error() * df(this->get_value()));
 	for(int k = 0; k < (int)prev.size(); k++)
-	{
-		float change = this->get_delta() * prev.contents[k].get_value();
-		float change2 = m*change + n*this->last_change[k];
-		this->weights[k] += change2;
-		this->last_change[k] = change;
-	}
+		this->finalize_correct(prev,k,m,n);
 }
-
+void neuron::finalize_correct(neuron_row prev,int k,float m,float n)
+{
+	float change = this->get_delta() * prev.contents[k].get_value();
+	float change2 = m*change + n*this->last_change[k];
+	this->weights[k] += change2;
+	this->last_change[k] = change;
+}
 class network
 {
 	public:
@@ -289,13 +317,8 @@ class network
 			else	this->rows[i].correct(v,m,n,this->rows[i-1],this->rows[i+1]);
 		}
 		error = 0;
-		float out_index = 0;
-
 		for(int i = 0; i < (int)this->rows[this->rows.size()-1].size(); i++)
-		{
-			error += 0.5*pow(vi[out_index]-this->rows[this->rows.size()-1].contents[i].get_value(),2);
-			out_index++;
-		}
+			error += 0.5*pow(vi[i]-this->rows[this->rows.size()-1].contents[i].get_value(),2);
 		return error;
 	}
 
