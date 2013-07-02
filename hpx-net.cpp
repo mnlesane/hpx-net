@@ -390,16 +390,17 @@ int main_main()
 {
 //  std::cout << "Initializing simulation... ";
 
-	network n(2,1,2,1,1);
+	network n(2,10,20,1,1);
 
 	int problem_count = 4;
 	int problem_correct = 0;
 
 	int display_output = 0;
+	int success = 0;
 
 //	std::cout << "Done.\n";
 	int i = 0;
-	for(i = 0; i < 5000; i++)
+	for(i = 0; i < 500; i++)
 	{
 	        if(display_output) std::cout << i << " ";
 		int s = i%(sizeof(tests)/sizeof(tests[0]));
@@ -467,16 +468,22 @@ int main_main()
 		    std::cout << "\n";
 		  }
 
-	      	if(problem_count == problem_correct) break;
+	      	if(problem_count == problem_correct)
+		{
+			success = 1;
+			//break;
+		}
 	}
-	std::cout << i << " iterations.\n";
+	std::cerr << i << " iterations.";
+	if(success) std::cerr << "  Successful convergence.";
+	std::cerr << "\n";
   return 0;
 }
 
 int hpx_main()
 {
   hpx::util::high_resolution_timer t;
-  for(int i = 0; i < 100; i++)
+  for(int i = 0; i < 1; i++)
     main_main();
   std::cout << t.elapsed() << "\n";
   return hpx::finalize();
