@@ -13,6 +13,9 @@
 
 class neuron_row;
 
+int FORWARD_THRESHOLD,
+    BACKPROP_THRESHOLD;
+
 float productsum(std::vector<float>,std::vector<float>);
 
 HPX_PLAIN_ACTION(productsum, ps_action);
@@ -101,7 +104,7 @@ class neuron
 
 	void run(std::vector<neuron> roots,int);
 
-	void correct(float,int,float,float,neuron_row,neuron_row);
+	void correct(float,int,float,float,neuron_row,neuron_row,int serial);
 	void finalize_correct(neuron_row,int,float,float);
 };
 	hpx::lcos::future<float> neuron::get_f_future()
@@ -151,6 +154,8 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 			this->value = 1.0;
 			this->new_value = hpx::lcos::make_ready_future((float)1.0);
 		}  else this->new_value = hpx::lcos::make_ready_future((float)0.0);
+    	                this->new_error = hpx::lcos::make_ready_future((float)0.0);
+		        this->new_delta = hpx::lcos::make_ready_future((float)0.0);
 		//Activation-related data
 		for(int k = 0; k < count_activations; k++)
 		{
@@ -168,7 +173,7 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 		this->error = this->new_error.get();
 		return this->error;
 	}
-	void neuron::run(std::vector<neuron> roots, int serial = 0)
+	void neuron::run(std::vector<neuron> roots, int serial)
 	{
 		if (this->bias) return;
 		if (serial) this->new_value = hpx::lcos::make_ready_future(productsum(future_get_roots(roots),this->weights));
@@ -206,10 +211,10 @@ class neuron_row
 		this->out = out;
 	}
 
-	void run(std::vector<neuron> roots)
+	void run(std::vector<neuron> roots,int serial)
 	{
 		for(int i = 0; i < (int)this->contents.size(); i++)
-			this->contents[i].run(roots);
+			this->contents[i].run(roots,serial);
 	}
 
 	void add(neuron x)
@@ -221,10 +226,10 @@ class neuron_row
 	{
 		return this->contents.size();
 	}
-	void correct(std::vector<float> v, float m, float n,neuron_row prev,neuron_row next)
+	void correct(std::vector<float> v, float m, float n,neuron_row prev,neuron_row next,int serial)
 	{
 		for(int j = 0; j < (int)this->size(); j++)
-	      		this->contents[j].correct((this->out)?v[j]:0,j,m,n,prev,next);
+	      		this->contents[j].correct((this->out)?v[j]:0,j,m,n,prev,next,serial);
 	}
 };
 
@@ -241,13 +246,19 @@ hpx::lcos::future<float> future_hidden_error(neuron_row next,int j)
 	hpx::lcos::future<float> result = hpx::async(&calc_hidden_error,next,j);
 	return result;
 }
-void neuron::correct(float target, int j /* index */, float m, float n, neuron_row prev, neuron_row next)
+void neuron::correct(float target, int j /* index */, float m, float n, neuron_row prev, neuron_row next, int serial)
 {
 	if (this->bias) return;
-	if (this->out)	this->new_error = hpx::lcos::make_ready_future(target - this->get_value());
-	else		//this->new_error = hpx::lcos::make_ready_future(calc_hidden_error(next,j));
-			this->new_error = future_hidden_error(next,j);
-			this->new_delta =
+	if (this->out)  this->new_error = hpx::lcos::make_ready_future(target - this->get_value());
+        if(serial)
+	{
+			if (!this->out) this->new_error = hpx::lcos::make_ready_future(calc_hidden_error(next,j));
+			this->new_delta = hpx::lcos::make_ready_future(this->get_error() * df(this->get_value()));
+	}
+	else
+	{
+			if (!this->out) this->new_error = future_hidden_error(next,j);
+	                this->new_delta =
 			hpx::lcos::local::dataflow
 			(
 				hpx::util::unwrapped
@@ -256,8 +267,8 @@ void neuron::correct(float target, int j /* index */, float m, float n, neuron_r
 					return error*df(value);
 				}
 				),this->new_error,hpx::lcos::make_ready_future(this->get_value())
-			);/**/
-			//hpx::lcos::make_ready_future(this->get_error() * df(this->get_value()));
+			);
+	}
 	for(int k = 0; k < (int)prev.size(); k++)
 		this->finalize_correct(prev,k,m,n);
 }
@@ -290,10 +301,12 @@ class network
 			this->rows[0].contents[i].new_value = hpx::lcos::make_ready_future(vals[i]);
 		}
 	}
-	void run() //Forward Propagation
+	void run(int serial) //Forward Pass
 	{
 		for(int i = 1; i < (int)this->rows.size(); i++)
-			this->rows[i].run(this->rows[i-1].contents);
+			if(i < FORWARD_THRESHOLD)
+				this->rows[i].run(this->rows[i-1].contents,serial);
+			else    this->rows[i].run(this->rows[i-1].contents,1);
 	}
 	std::vector<float> reverse(std::vector<float> vals)
 	{
@@ -302,7 +315,7 @@ class network
 			result.push_back(vals[i]);
 		return result;
 	}
-	float correct(std::vector<float> v, float m /*learning_rate*/, float n /*momentum*/)
+	float correct(std::vector<float> v, float m /*learning_rate*/, float n /*momentum*/, int serial)
 	{
 		std::vector<float> vi = v;
 		//v = this->reverse(v);
@@ -312,9 +325,10 @@ class network
 		for(int i = (int)this->rows.size()-1; i >= 1; i--)
 		{
 			int s = (int)this->rows.size();
+			if(i > BACKPROP_THRESHOLD) serial = 1;
 			if(s-1 == i)
-				this->rows[i].correct(v,m,n,this->rows[i-1],this->rows[i-1]);
-			else	this->rows[i].correct(v,m,n,this->rows[i-1],this->rows[i+1]);
+				this->rows[i].correct(v,m,n,this->rows[i-1],this->rows[i-1],serial);
+			else	this->rows[i].correct(v,m,n,this->rows[i-1],this->rows[i+1],serial);
 		}
 		error = 0;
 		for(int i = 0; i < (int)this->rows[this->rows.size()-1].size(); i++)
@@ -386,11 +400,11 @@ std::vector<float> to_vector(float x[],int s)
 		{0.0}
 	};
 
-int main_main()
+int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int serial)
 {
 //  std::cout << "Initializing simulation... ";
 
-	network n(2,10,20,1,1);
+	network n(in,hidden_rows,hidden_cols,out,1);
 
 	int problem_count = 4;
 	int problem_correct = 0;
@@ -400,7 +414,7 @@ int main_main()
 
 //	std::cout << "Done.\n";
 	int i = 0;
-	for(i = 0; i < 500; i++)
+	for(i = 0; i < its; i++)
 	{
 	        if(display_output) std::cout << i << " ";
 		int s = i%(sizeof(tests)/sizeof(tests[0]));
@@ -408,7 +422,8 @@ int main_main()
 		std::vector<float> sensor = to_vector(tests[s],sizeof(tests[s])/sizeof(float));
 		std::vector<float> target = to_vector(targets[s],sizeof(targets[s])/sizeof(float));
 		n.setSensors(sensor);
-		n.run();
+		n.run(serial);
+		//else n.run_serial();
 
 		if(display_output)
 		{
@@ -458,8 +473,8 @@ int main_main()
 		    }
 
 //		if(!display_output) std::cout << "Backpropagating...\n";
-		float error =
-		  n.correct(target,0.05,0.01);
+		float error = n.correct(target,0.05,0.01,serial);
+
 //		if(!display_output) std::cout << "Done.\n";
 
 		if(display_output)
@@ -482,9 +497,11 @@ int main_main()
 
 int hpx_main()
 {
+  int a,b,c,d,e,f;
+  std::cin >> a >> b >> c >> d >> e >> f >> FORWARD_THRESHOLD >> BACKPROP_THRESHOLD;
   hpx::util::high_resolution_timer t;
   for(int i = 0; i < 1; i++)
-    main_main();
+    main_main(a,b,c,d,e,f);
   std::cout << t.elapsed() << "\n";
   return hpx::finalize();
 }
