@@ -282,7 +282,7 @@ std::vector<float> to_vector(float x[],int s)
 int main_main()
 {
   init();
-	network n(2,10,20,1,1);
+	network n(2,1,2,1,1);
 
 //XOR
 	float tests[][2] =
@@ -308,7 +308,7 @@ int main_main()
 
 	//	float lr = 0.05;
 
-	for(i = 0;; i++)
+	for(i = 0; i<5000; i++)
 	{
 	  if(disp) std::cout << i << " ";
 		int s = i%(sizeof(tests)/sizeof(tests[0]));
