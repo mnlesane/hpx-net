@@ -53,29 +53,40 @@ float productsum(std::vector<float> roots, std::vector<float> weights)
 
 hpx::lcos::future<float> future_productsum(std::vector<hpx::lcos::future<float>> roots, std::vector<float> weights)
 {
-	hpx::lcos::future<float> out = hpx::lcos::make_ready_future((float)0.0);
-        for(int i = 0; i < (int)roots.size(); i++)
-	{
-		hpx::lcos::future<float> add = hpx::lcos::local::dataflow
-		(
-			hpx::util::unwrapped
-			( [] (float a, float b)
+	hpx::lcos::future<float> out = hpx::lcos::local::dataflow
+	(
+		hpx::util::unwrapped
+		( [] (std::vector<hpx::lcos::future<float>> roots,
+		      std::vector<float> weights)
+		{
+			hpx::lcos::future<float> out = hpx::lcos::make_ready_future((float)0.0);
+			for(int i = 0; i < (int)roots.size(); i++)
 			{
-				return a*b;
+				hpx::lcos::future<float> add = hpx::lcos::local::dataflow
+				(
+					hpx::util::unwrapped
+					( [] (float a, float b)
+					{
+						return a*b;
+					}
+					),roots[i],hpx::lcos::make_ready_future((float)weights[i])
+				);
+				out = hpx::lcos::local::dataflow
+				(
+					hpx::util::unwrapped
+					( [] (float a, float b)
+					{
+						return a+b;
+					}
+					),out,add
+				);
 			}
-			),roots[i],hpx::lcos::make_ready_future((float)weights[i])
-		);
-		out = hpx::lcos::local::dataflow
-		(
-			hpx::util::unwrapped
-			( [] (float a, float b)
-			{
-				return a+b;
-
-			}
-			),out,add
-		);
-	}
+			return out;
+		}
+		),
+		hpx::lcos::make_ready_future(roots),
+		hpx::lcos::make_ready_future(weights)
+	);
 	return out;
 }
 
@@ -340,8 +351,6 @@ class network
 	void init(int in, int hidden_rows, int hidden_cols, int out, int bias = 0)
 	{
 		int random = 0;
-//	neuron_row(int neurons, int out, int bias, int count_activations, int random)
-
 		std::vector<neuron_row> row;
 
 		//Input Layer
@@ -400,11 +409,16 @@ std::vector<float> to_vector(float x[],int s)
 		{0.0}
 	};
 
-int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int serial)
+int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int serial, hpx::util::high_resolution_timer t)
 {
-//  std::cout << "Initializing simulation... ";
+        std::cout << "Initializing simulation... ";
+
+	float toffset = t.elapsed();
 
 	network n(in,hidden_rows,hidden_cols,out,1);
+
+	std::cout << "Done. "
+		  << "(" << (t.elapsed()-toffset) << " s)\n";
 
 	int problem_count = 4;
 	int problem_correct = 0;
@@ -412,7 +426,6 @@ int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int se
 	int display_output = 0;
 	int success = 0;
 
-//	std::cout << "Done.\n";
 	int i = 0;
 	for(i = 0; i < its; i++)
 	{
@@ -422,8 +435,11 @@ int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int se
 		std::vector<float> sensor = to_vector(tests[s],sizeof(tests[s])/sizeof(float));
 		std::vector<float> target = to_vector(targets[s],sizeof(targets[s])/sizeof(float));
 		n.setSensors(sensor);
+		std::cout << "Forward Pass... ";
+
+		toffset = t.elapsed();
 		n.run(serial);
-		//else n.run_serial();
+		std::cout << "Done. (" << (t.elapsed()-toffset) << " s)\n";
 
 		if(display_output)
 		{
@@ -472,10 +488,12 @@ int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int se
 		      if(display_output) std::cout << "\033[31mIncorrect!\033[0m\t";
 		    }
 
-//		if(!display_output) std::cout << "Backpropagating...\n";
+		if(!display_output) std::cout << "Backpropagating... ";
+
+	        toffset = t.elapsed();
 		float error = n.correct(target,0.05,0.01,serial);
 
-//		if(!display_output) std::cout << "Done.\n";
+		if(!display_output) std::cout << "Done. (" << (t.elapsed()-toffset) << " seconds)\n";
 
 		if(display_output)
 		  {
@@ -501,8 +519,8 @@ int hpx_main()
   std::cin >> a >> b >> c >> d >> e >> f >> FORWARD_THRESHOLD >> BACKPROP_THRESHOLD;
   hpx::util::high_resolution_timer t;
   for(int i = 0; i < 1; i++)
-    main_main(a,b,c,d,e,f);
-  std::cout << t.elapsed() << "\n";
+    main_main(a,b,c,d,e,f,t);
+  std::cout << "Total Time: " << t.elapsed() << " seconds.\n";
   return hpx::finalize();
 }
 
