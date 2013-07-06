@@ -104,10 +104,10 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
   return out;
 }
 
-hpx::lcos::future<float> future_productsum(std::vector<neuron> prev, std::vector<float> weights)
+float future_productsum(std::vector<neuron> prev, std::vector<float> weights)
 {
-	std::vector<hpx::lcos::future<float>> roots = extract_future_roots(prev);
-
+	hpx::lcos::future<std::vector<hpx::lcos::future<float>>> future_roots = hpx::async(&extract_future_roots,prev);
+	
 	hpx::lcos::future<float> out = hpx::lcos::local::dataflow
 	(
 		hpx::util::unwrapped
@@ -139,10 +139,10 @@ hpx::lcos::future<float> future_productsum(std::vector<neuron> prev, std::vector
 			return out;
 		}
 		),
-		hpx::lcos::make_ready_future(roots),
+		future_roots,
 		hpx::lcos::make_ready_future(weights)
 	);
-	return out;
+	return out.get();
 }
 
 std::vector<float> extract_roots(std::vector<neuron> contents)
@@ -193,19 +193,12 @@ std::vector<float> future_get_roots(std::vector<neuron> contents)
 	{
 		if (this->bias) return;
 		if (serial) this->new_value = hpx::lcos::make_ready_future(productsum(future_get_roots(roots),this->weights));
-	        else
-		{
-			this->psum = hpx::async(&future_productsum,roots,this->weights);
-			//this->new_value = future_productsum(extract_future_roots(roots),this->weights);
-		}
+	        else	    this->new_value = hpx::async(&future_productsum,roots,this->weights);
 	}
 	float neuron::get_value()
 	{
 	    if(!this->bias)
-	    {
-	      this->new_value = this->psum.get();
 	      this->value = f(this->new_value.get());
-	    }
 	    return this->value;
 	}
 class neuron_row
