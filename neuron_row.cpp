@@ -4,12 +4,14 @@
 * file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 */
 
+//initializes a neuron row given a vector of neurons.
 neuron_row::neuron_row(std::vector<neuron> init,int out)
 {
 	this->contents = init;
 	this->out = out;
 }
 
+//initializes a neuron row given various parameters.
 neuron_row::neuron_row(int neurons, int out, int bias, int count_activations, int random)
 {
 	std::vector<neuron> init;
@@ -21,19 +23,27 @@ if(bias)	init.push_back(neuron(1,count_activations,random));
 	this->contents = init;
 	this->out = out;
 }
+
+//forward pass
 void neuron_row::run(std::vector<neuron> roots,int serial)
 {
 	for(int i = 0; i < (int)this->contents.size(); i++)
 		this->contents[i].run(roots,serial);
 }
+
+//adds a neuron to the row.  weights of next row not affected, please eventually fix this.
 void neuron_row::add(neuron x)
 {
 	contents.push_back(x);
 }
+
+//returns the number of neurons in the row.
 int neuron_row::size()
 {
 	return this->contents.size();
 }
+
+//backpropagation
 void neuron_row::correct(std::vector<float> v, float m, float n,neuron_row prev,neuron_row next,int serial)
 {
 	for(int j = 0; j < (int)this->size(); j++)

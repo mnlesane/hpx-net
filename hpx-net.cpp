@@ -15,6 +15,7 @@
 #include "neuron_row.cpp"
 #include "network.cpp"
 
+//Initializes, trains, and backpropagates network on XOR problem based on inputs, while timing performance
 int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int serial, hpx::util::high_resolution_timer t)
 {
         std::cout << "Initializing simulation... ";
@@ -119,6 +120,7 @@ int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int se
   return 0;
 }
 
+//Prompts for inputs and launches simulation.
 int hpx_main()
 {
   int a,b,c,d,e,f;
@@ -130,6 +132,7 @@ int hpx_main()
   return hpx::finalize();
 }
 
+//Initialization
 int main(int argc, char* argv[])
 {
   init();

@@ -17,6 +17,7 @@ hpx::lcos::future<float> neuron::get_f_future()
 	);
 }
 
+//initialization
 neuron::neuron(float bias, int count_activations, int random)
 {
 	this->value = 0.0;
@@ -35,28 +36,38 @@ neuron::neuron(float bias, int count_activations, int random)
 		this->last_change.push_back(0);
 	}
 }
+
+//waits on and returns delta from backpropagation.
 float neuron::get_delta()
 {
 	this->delta = this->new_delta.get();
 	return this->delta;
 }
+
+//waits on and returns hidden error.
 float neuron::get_error()
 {
 	this->error = this->new_error.get();
 	return this->error;
 }
+
+//forward pass
 void neuron::run(std::vector<neuron> roots, int serial)
 {
 	if (this->bias) return;
 	if (serial) this->new_value = hpx::lcos::make_ready_future(productsum(future_get_roots(roots),this->weights));
         else	    this->new_value = hpx::async(&future_productsum,roots,this->weights);
 }
+
+//waits on and returns activation future.
 float neuron::get_value()
 {
     if(!this->bias)
       this->value = f(this->new_value.get());
     return this->value;
 }
+
+//backpropagation
 void neuron::correct(float target, int j /* index */, float m, float n, neuron_row prev, neuron_row next, int serial)
 {
 	if (this->bias) return;
@@ -83,6 +94,8 @@ void neuron::correct(float target, int j /* index */, float m, float n, neuron_r
 	for(int k = 0; k < (int)prev.size(); k++)
 		this->finalize_correct(prev,k,m,n);
 }
+
+//backpropagation finalization. momentum and weights adjusted.
 void neuron::finalize_correct(neuron_row prev,int k,float m,float n)
 {
 	float change = this->get_delta() * prev.contents[k].get_value();
