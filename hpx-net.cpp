@@ -1,3 +1,9 @@
+/* Copyright (c) 2013 Michael LeSane
+*
+* Distributed under the Boost Software License, Version 1.0. (See accompanying
+* file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+*/
+
 //TODO: find std/boost equivalents of reinvented wheels
 #include "hpx-net-init.hpp"
 #include "neuron.hpp"

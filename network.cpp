@@ -1,3 +1,9 @@
+/* Copyright (c) 2013 Michael LeSane
+*
+* Distributed under the Boost Software License, Version 1.0. (See accompanying
+* file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+*/
+
 void network::setSensors(float vals[])
 {
 	for(int i = 0; i < (int)(sizeof(vals)/sizeof(float)); i++)
