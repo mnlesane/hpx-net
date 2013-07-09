@@ -1,0 +1,3 @@
+#!/bin/bash
+#./hpx-net <input --hpx:print-counter=/threads{locality#0/total}/idle-rate
+./hpx-net <input --hpx:print-counter=/threads{locality#0/total}/idle-rate --hpx:threads 4
