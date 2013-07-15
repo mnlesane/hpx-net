@@ -25,8 +25,34 @@ if(bias)	init.push_back(neuron(1,count_activations,random));
 }
 
 //forward pass
-void neuron_row::run(std::vector<neuron> roots,int serial)
+std::vector<neuron> run_new_contents
+(
+	hpx::lcos::future<std::vector<neuron>> prev_row,
+	std::vector<neuron> current_row,
+	int serial
+)
 {
+	return hpx::lcos::local::dataflow
+	(
+		hpx::util::unwrapped
+		( [] (std::vector<neuron> roots, std::vector<neuron> current, int serial)
+		{
+			for(int i = 0; i < (int)current.size(); i++)
+				current[i].run(roots,serial);
+			return current;
+		}
+		),prev_row,hpx::lcos::make_ready_future(current_row),hpx::lcos::make_ready_future((int)serial)
+	).get();
+}
+
+void neuron_row::run(neuron_row prev,int serial)
+{
+	//New Implementation
+	this->new_contents = hpx::async(&run_new_contents,prev.new_contents,this->contents,serial);
+	return;
+
+	//Old Implementation
+	std::vector<neuron> roots = prev.contents;
 	for(int i = 0; i < (int)this->contents.size(); i++)
 		this->contents[i].run(roots,serial);
 }

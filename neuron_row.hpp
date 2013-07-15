@@ -9,13 +9,14 @@ class neuron_row
 	public:
 
 	std::vector<neuron> contents;
+	hpx::lcos::future<std::vector<neuron>> new_contents;
 
 	int out;
 
 	neuron_row(std::vector<neuron>,int);
 	neuron_row(int,int,int,int,int);
 
-	void run(std::vector<neuron>,int);
+	void run(neuron_row,int);
 	void add(neuron);
 
 	int size();

@@ -12,6 +12,7 @@ void network::setSensors(float vals[])
 		this->rows[0].contents[i].value = vals[i];
 		this->rows[0].contents[i].new_value = hpx::lcos::make_ready_future(vals[i]);
 	}
+	this->rows[0].new_contents = hpx::lcos::make_ready_future(this->rows[0].contents);
 }
 void network::setSensors(std::vector<float> vals)
 {
@@ -20,14 +21,15 @@ void network::setSensors(std::vector<float> vals)
 		this->rows[0].contents[i].value = vals[i];
 		this->rows[0].contents[i].new_value = hpx::lcos::make_ready_future(vals[i]);
 	}
+	this->rows[0].new_contents = hpx::lcos::make_ready_future(this->rows[0].contents);
 }
 //Forward Pass
 void network::run(int serial)
 {
 	for(int i = 1; i < (int)this->rows.size(); i++)
 		if(i < FORWARD_THRESHOLD)
-			this->rows[i].run(this->rows[i-1].contents,serial);
-		else    this->rows[i].run(this->rows[i-1].contents,1);
+			this->rows[i].run(this->rows[i-1],serial);
+		else    this->rows[i].run(this->rows[i-1],1);
 }
 
 //reverses a vector.

@@ -11,35 +11,37 @@
 #include <hpx/include/lcos.hpp>
 #include <hpx/util/unwrapped.hpp>
 #include <hpx/include/iostreams.hpp>
+#include <hpx/runtime/actions/action_support.hpp>
+#include <hpx/include/components.hpp>
 
-struct HPX_COMPONENT_EXPORT fibmgr : hpx::components::simple_component<fibmgr>
+#include <hpx/hpx_fwd.hpp>
+#include <hpx/include/serialization.hpp>
+
+struct s
 {
-	public: int x;
-	fibmgr(int x)
+	hpx::lcos::future<float> next;
+	s()
 	{
-		this->x = x;
+		this->next = hpx::lcos::make_ready_future((float)9.9);
 	}
-	int fib()
+	void f()
 	{
-		int x = this->x;
-		hpx::naming::id_type const LOCAL = hpx::find_here();
-
-		if(x==1) return 1;
-		if(x==0) return 0;
-		hpx::lcos::future<int> a = hpx::async(fib_action,x-1);
-		hpx::lcos::future<int> b = hpx::async(fib_action,x-2);
-		return a.get()+b.get();
+		this->next = hpx::lcos::make_ready_future((float)8.8);
 	}
-	HPX_DEFINE_COMPONENT_ACTION(fibmgr,fib,fib_action);
+	float g()
+	{
+		return this->next.get();
+	}
 };
-	HPX_REGISTER_ACTION_DECLARATION(fibmgr::fib_action);
 
 int hpx_main()
 {
-	fibmgr f(24);
-	int x;
-	std::cin >> x;
-	std::cout << hpx::async(fibmgr::fib_action,hpx::find_here(),24).get() << "\n";
+	s ob;
+	std::cout << ob.g() << "\n";
+	hpx::lcos::future<float> state = ob.next;
+	ob.f();
+	std::cout << ob.g() << "\n";
+	std::cout << state.get() << "\n";
 	return hpx::finalize();
 }
 int main(int argc, char* argv[])
