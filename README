@@ -15,7 +15,7 @@ The current build accepts the following numerical inputs from standard input (in
 	- Number of hidden columns
 	- Number of output-layer columns
 	- Number of iterations
-	- Boolean value: Should the execution be purely serial, or parallel? (1-Y, 0-N)
+	- Boolean value: Should the execution be purely serial? (1-Y, 0-N)
 	- Forward threshold: If parallel, how many rows should be executed before proceeding, purely serial?
 	- Backprop threshold: If parallel, how many rows should be executed before proceeding, purely serial?
 
