@@ -54,6 +54,22 @@ float neuron::get_error()
 //forward pass
 void neuron::run(std::vector<neuron> roots, int serial)
 {
+	serial = 1;
+	/*
+	Executing rows in parallel and neurons for each row in serial
+	seems to give parallel execution a slight advantage over serial
+	execution in medium-sized simulations.
+
+	(2x4x2048x1, but not 2x4x4092x1)
+
+	To do this, set serial to 1 above.  Otherwise, remove the line.
+
+	Larger networks (e.g., 100,000 neurons) tend to end in segfaults,
+	and otherwise have excessively lengthy execution times,
+	so scalability of the "finest-grain implementation" thus far
+	has not been be properly assessed at this point.
+	*/
+
 	if (this->bias) return;
 	if (serial) this->new_value = hpx::lcos::make_ready_future(productsum(future_get_roots(roots),this->weights));
         else	    this->new_value = hpx::async(&future_productsum,roots,this->weights);
