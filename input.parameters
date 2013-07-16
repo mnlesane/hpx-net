@@ -1,8 +1,0 @@
-input cols
-hidden rows
-hidden cols
-output cols
-iterations
-serial
-forward-threshold
-backprop-threshold
