@@ -1,0 +1,30 @@
+May be compiled and run by using hmake (please modify to reflect the location of the user's HPX build directory.):
+
+       ./hmake hpx-net
+
+To run, enter:
+
+   	./hpx-net -tN
+
+Where N refers to the number of processors to be used.
+
+The current build accepts the following numerical inputs from standard input (in order):
+
+    	- Number of neural network input columns (sensors)
+	- Number of hidden rows
+	- Number of hidden columns
+	- Number of output-layer columns
+	- Number of iterations
+	- Boolean value: Should the execution be purely serial, or parallel? (1-Y, 0-N)
+	- Forward threshold: If parallel, how many rows should be executed before proceeding, purely serial?
+	- Backprop threshold: If parallel, how many rows should be executed before proceeding, purely serial?
+
+To avoid the hassle of entering these values, the "input" file has been provided and may be customized to one's liking.
+
+   	 ./hpx-net -tN <input
+
+There is a line at the start of neuron::run redefining int serial as "1" in all cases.
+
+If this line is present, forward pass execution occurs with not-so-fine-grained parallelism (if otherwise specified to be parallel).
+
+In this scenario, only the rows of the ANN are executed in parallel, while the neurons within the rows are executed serially.
