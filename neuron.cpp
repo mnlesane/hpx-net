@@ -57,10 +57,8 @@ void neuron::run(std::vector<neuron> roots, int serial)
 	serial = 1;
 	/*
 	Executing rows in parallel and neurons for each row in serial
-	seems to give parallel execution a slight advantage over serial
-	execution in medium-sized simulations.
-
-	(2x4x2048x1, but not 2x4x4092x1)
+	seems to sometimes give parallel execution a slight advantage over
+	serial execution in certain simulations, if not equal/similar performance.
 
 	To do this, set serial to 1 above.  Otherwise, remove the line.
 
