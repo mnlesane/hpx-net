@@ -18,6 +18,7 @@ class neuron_row
 
 	void run(neuron_row,int);
 	void add(neuron);
+	void finalize_run();
 
 	int size();
 

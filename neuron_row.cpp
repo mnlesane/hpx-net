@@ -45,11 +45,19 @@ std::vector<neuron> run_new_contents
 	).get();
 }
 
+void neuron_row::finalize_run()
+{
+	this->contents = this->new_contents.get();
+}
 void neuron_row::run(neuron_row prev,int serial)
 {
 	//New Implementation
-	this->new_contents = hpx::async(&run_new_contents,prev.new_contents,this->contents,serial);
-	return;
+	if(!serial)
+	{
+		this->new_contents = hpx::async(&run_new_contents,prev.new_contents,this->contents,serial);
+		return;
+	}
+	
 
 	//Old Implementation
 	std::vector<neuron> roots = prev.contents;

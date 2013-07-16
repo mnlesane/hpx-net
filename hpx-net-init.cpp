@@ -67,9 +67,13 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 		out.push_back(contents[i].get_f_future());
 	return out;
 }
+//HPX_PLAIN_ACTION(extract_future_roots,extract_future_roots_action);
+
 //purely parallel equivalent of productsum().
 float future_productsum(std::vector<neuron> prev, std::vector<float> weights)
 {
+//	extract_future_roots_action efr;
+//	hpx::lcos::future<std::vector<hpx::lcos::future<float>>> future_roots = hpx::async(efr,hpx::find_here(),prev);
 	hpx::lcos::future<std::vector<hpx::lcos::future<float>>> future_roots = hpx::async(&extract_future_roots,prev);
 	
 	hpx::lcos::future<float> out = hpx::lcos::local::dataflow
@@ -117,6 +121,8 @@ std::vector<float> extract_roots(std::vector<neuron> contents)
 		result.push_back(contents[i].value);
 	return result;
 }
+//HPX_PLAIN_ACTION(extract_roots,extract_roots_action);
+
 //waits on futures and extracts activations from a vector of neurons, returns as a vector
 std::vector<float> future_get_roots(std::vector<neuron> contents)
 {
@@ -134,8 +140,12 @@ float calc_hidden_error(neuron_row next,int j)
 		else error += next.contents[k].get_delta() * next.contents[k].weights[j];
 	return error;
 }
+//HPX_PLAIN_ACTION(calc_hidden_error,calc_hidden_error_action);
+
 hpx::lcos::future<float> future_hidden_error(neuron_row next,int j)
 {
+	//calc_hidden_error_action che;
+	//hpx::lcos::future<float> result = hpx::async(che,hpx::find_here(),next,j);
 	hpx::lcos::future<float> result = hpx::async(&calc_hidden_error,next,j);
 	return result;
 }
