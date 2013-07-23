@@ -54,7 +54,7 @@ float neuron::get_error()
 //forward pass
 void neuron::run(std::vector<neuron> roots, int serial)
 {
-	serial = 1;
+	//serial = 1;
 	/*
 	Executing rows in parallel and neurons for each row in serial
 	seems to sometimes give parallel execution a slight advantage over
