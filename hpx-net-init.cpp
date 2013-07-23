@@ -107,7 +107,9 @@ float future_productsum(std::vector<neuron> prev, std::vector<float> weights)
 			return out;
 		}
 		),
-		future_roots,
+		hpx::lcos::make_ready_future(extract_future_roots(prev)),
+		//future_roots, //too parallel?
+
 		hpx::lcos::make_ready_future(weights)
 	);
 	return out.get();
