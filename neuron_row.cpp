@@ -52,12 +52,12 @@ void neuron_row::finalize_run()
 void neuron_row::run(neuron_row prev,int serial)
 {
 	//New Implementation
-	if(!serial)
+	/*if(!serial)
 	{
 		this->new_contents = hpx::async(&run_new_contents,prev.new_contents,this->contents,serial);
 		//this->new_contents = hpx::lcos::make_ready_future(this->contents);
 		return;
-	}
+	}/**/
 	
 
 	//Old Implementation

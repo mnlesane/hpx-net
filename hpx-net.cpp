@@ -33,6 +33,8 @@ int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int se
 	int display_output = 1;
 	int success = 0;
 
+	int display_time = 0;
+
 	int i = 0;
 	for(i = 0; i < its; i++)
 	{
@@ -42,11 +44,11 @@ int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int se
 		std::vector<float> sensor = to_vector(tests[s],sizeof(tests[s])/sizeof(float));
 		std::vector<float> target = to_vector(targets[s],sizeof(targets[s])/sizeof(float));
 		n.setSensors(sensor);
-		std::cout << "Forward Pass... ";
+		if(display_time) std::cout << "Forward Pass... ";
 
 		toffset = t.elapsed();
 		n.run(serial);
-		std::cout << "Done. (" << (t.elapsed()-toffset) << " s)\n";
+		if(display_time) std::cout << "Done. (" << (t.elapsed()-toffset) << " s)\n";
 
 		if(display_output)
 		{
@@ -59,13 +61,14 @@ int main_main(int in, int hidden_rows, int hidden_cols, int out, int its, int se
 		    std::cout << ") = ";
 		}
 
-std::cout << "Waiting on results... ";
+		if(display_time) std::cout << "Waiting on results... ";
 //toffset = t.elapsed();
 
 int valid = 1;
 		for(int it = 0; it < (int)n.rows[n.rows.size()-1].contents.size(); it++)
 		{
-			if(!serial) n.rows[n.rows.size()-1].finalize_run();
+			//For "row" parallelism
+			//if(!serial) n.rows[n.rows.size()-1].finalize_run();
 			int counter = 0;
 			float r = n.rows[n.rows.size()-1].contents[it].get_value();
 			if(r < 0) r = 0;
@@ -74,7 +77,7 @@ int valid = 1;
 			if(round(n.rows[n.rows.size()-1].contents[it].get_value()) != targets[s][counter]) valid = 0;
 			else counter++;
 		}
-std::cout << "Done. (" << t.elapsed() - toffset << " s total)\n";
+if(display_time)std::cout << "Done. (" << t.elapsed() - toffset << " s total)\n";
 
 		if(display_output)
 		    std::cout << "(";
@@ -99,13 +102,13 @@ std::cout << "Done. (" << t.elapsed() - toffset << " s total)\n";
 		      if(display_output) std::cout << "\033[31mIncorrect!\033[0m\t";
 		    }
 
-		if(!display_output) std::cout << "Backpropagating... ";
+		if(!display_output && display_time) std::cout << "Backpropagating... ";
 
 	        toffset = t.elapsed();
 		float error = 0;
-		      //error = n.correct(target,0.05,0.01,serial);
+		      error = n.correct(target,0.05,0.01,serial);
 
-		if(!display_output) std::cout << "Done. (" << (t.elapsed()-toffset) << " seconds)\n";
+		if(!display_output && display_time) std::cout << "Done. (" << (t.elapsed()-toffset) << " seconds)\n";
 
 		if(display_output)
 		  {

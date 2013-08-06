@@ -21,3 +21,5 @@
 class neuron;
 class neuron_row;
 class network;
+
+std::vector<float> future_get_roots(std::vector<neuron>);

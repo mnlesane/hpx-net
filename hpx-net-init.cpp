@@ -72,11 +72,12 @@ std::vector<hpx::lcos::future<float>> extract_future_roots(std::vector<neuron> c
 //purely parallel equivalent of productsum().
 float future_productsum(std::vector<neuron> prev, std::vector<float> weights)
 {
+//	return 0;
 //	extract_future_roots_action efr;
 //	hpx::lcos::future<std::vector<hpx::lcos::future<float>>> future_roots = hpx::async(efr,hpx::find_here(),prev);
-	hpx::lcos::future<std::vector<hpx::lcos::future<float>>> future_roots = hpx::async(&extract_future_roots,prev);
-	
-	hpx::lcos::future<float> out = hpx::lcos::local::dataflow
+//	hpx::lcos::future<std::vector<hpx::lcos::future<float>>> future_roots = hpx::async(&extract_future_roots,prev);
+	return productsum(future_get_roots(prev),weights);
+/*	hpx::lcos::future<float> out = hpx::lcos::local::dataflow
 	(
 		hpx::util::unwrapped
 		( [] (std::vector<hpx::lcos::future<float>> roots,
@@ -113,6 +114,7 @@ float future_productsum(std::vector<neuron> prev, std::vector<float> weights)
 		hpx::lcos::make_ready_future(weights)
 	);
 	return out.get();
+/**/
 }
 //extracts activations from a vector of neurons, returns as a vector
 std::vector<float> extract_roots(std::vector<neuron> contents)
